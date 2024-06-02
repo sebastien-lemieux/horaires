@@ -11,7 +11,7 @@ expand(time_s, time_e, date_s, date_e) = [Span(time_s, time_e, d, d) for d in da
 conflict(span_a::Span, span_b::Span) = (span_a.s <= span_b.e) && (span_a.e >= span_b.s)
 conflict_dt(span_a::Span, span_b::Span) = (span_a.s ≤ span_b.e && span_a.e ≥ span_b.e) ? Span(span_a.s, span_b.e) : Span(span_b.s, span_a.e)
 conflict(a::Vector{Span}, b::Vector{Span}) = any([conflict(sa, sb) for sa in a, sb in b])
-conflict_dt(a::Vector{Span}, b::Vector{Span}) = [conflict_dt(sa, sb) for sa in a, sb in b if conflict(sa, sb)]
+conflict_dt(a::Vector{Span}, b::Vector{Span})::Vector{Span} = [conflict_dt(sa, sb) for sa in a, sb in b if conflict(sa, sb)]
 
 function Base.show(io::IO, span::Span)
     d = Dates.format(span.s, "yyyy-mm-dd")

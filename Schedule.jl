@@ -3,14 +3,14 @@ using CSV, StringEncodings, DataFrames
 
 include("Span.jl")
 
-struct Courses4
+struct Courses
     df::DataFrame
     sections::GroupedDataFrame
     sigle::GroupedDataFrame
     sect::Dict{String, Vector{String}}
 end
 
-function Courses4(fas::String, med::String)
+function Courses(fas::String, med::String)
     fas_df = CSV.read(open(fas, enc"ISO-8859-1"), DataFrame, header=9, footerskip=7)
     med_df = CSV.read(open(med, enc"ISO-8859-1"), DataFrame, header=9, footerskip=7)
     df = vcat(fas_df, med_df)
@@ -26,14 +26,17 @@ function Courses4(fas::String, med::String)
                      du=df[!, "Du"],
                      au=df[!, "Au"]
     )
+    sections_df = groupby(c_df, ["sigle", "section"])
+    sigle_df = groupby(c_df, "sigle")
     sect = Dict{String, Vector{String}}()
-    for subdf in c.sigle
+    for k in keys(sigle_df)
+        subdf = sigle_df[k]
         sect[last(subdf.sigle)] = unique(subdf.section)
     end
-    Courses4(c_df, groupby(c_df, ["sigle", "section"]), groupby(c_df, "sigle"), sect)
+    Courses(c_df, sections_df, sigle_df, sect)
 end
 
-function spans(c::Courses4, sigle::String) # ::Dict{NTuple{2, String},Vector{Span}}
+function spans(c::Courses, sigle::String)
     d = Dict{NTuple{2, String},Vector{Span}}()
     df = c.sigle[(sigle,)]
     volSec = [NTuple{2, String}((row.volet, row.section)) for row in eachrow(c.sigle[(sigle,)])] |> unique
@@ -43,12 +46,18 @@ function spans(c::Courses4, sigle::String) # ::Dict{NTuple{2, String},Vector{Spa
     end
     d
 end
-d = spans(c, "MAT 1400")
 
-k = keys(d)
-for a in k, b in k
-    a ≥ b && continue
-    println("$a vs. $b = $(conflict(d[a], d[b]))")
-    println(conflict_dt(d[a], d[b]))
-end
+# function spans(d::Dict{Tuple{String, String}, Vector{Span}}, t::Tuple{String, String})
+
+# end
+
+# ## test
+# d = spans(c, "IFT 1015")
+
+# k = keys(d)
+# for a in k, b in k
+#     a ≥ b && continue
+#     println("$a vs. $b = $(conflict(d[a], d[b]))")
+#     println(conflict_dt(d[a], d[b]))
+# end
 
