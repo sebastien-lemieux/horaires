@@ -12,7 +12,6 @@ Base.getindex(s::Schedule, str::String) = s.d[str]
 function conflict(s_a::Schedule, s_b::Schedule)
     d = Dict{Tuple{String, String}, Vector{Span}}()
     for k_a in keys(s_a.d), k_b in keys(s_b.d)
-        # println("VOLET $k_a vs. $k_b")
         dt = conflict_dt(s_a[k_a], s_b[k_b])
         isempty(dt) && continue
         d[(k_a, k_b)] = dt
