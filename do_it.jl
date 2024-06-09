@@ -1,49 +1,42 @@
+using JuMP
+using GLPK
+
 # include("Schedule.jl")
 # include("VolSec.jl")
 include("Program.jl")
 include("Schedules.jl")
+include("Section.jl")
 
-p_blocs, p_courses = Program("https://admission.umontreal.ca/programmes/baccalaureat-en-bio-informatique/structure-du-programme/")
+prog = Program("https://admission.umontreal.ca/programmes/baccalaureat-en-bio-informatique/structure-du-programme/")
 schedules = Schedules("A2024_FAS.csv", "A2024_FMed.csv")
 
+course_list = [:IFT_1015, :BIN_1002, :BCM_1501, :BCM_2550, :IFT_1215, :MAT_1400]
 
-## To fix
+model = Model(GLPK.Optimizer)
 
-function checkConflict(sigle_a, sigle_b)
-    alt = schedules(c, sigle_a)
-    alt_b = schedules(c, sigle_b)
-    comp = compatible(alt, alt_b)
-    println("Sections compatibles:")
-    println(join(comp, "\n"))
-
-    println("\nSections en conflit:")
-    conf = conflict(alt, alt_b)
-    println(join(conf, "\n"))
+section_v = Section1[]
+for sym in course_list
+    sections = prepSections(schedules, prog, sym)
+    for sec in sections
+        push!(section_v, sec)
+    end
 end
 
-# checkConflict("IFT 1015", "BIN 1002")
-checkConflict("IFT 1015", "BCM 2550")
-# c["BCM 2550"]
-# c["IFT 1015", "A"]
+@variable(model, sec_var[i=1:length(section_v)], Bin)
 
-session_1 = ["IFT 1015", "BCM 1501", "BIN 1002", "BCM 2550", "IFT 1215"]
-# session_1 = ["IFT 1015", "BCM 1501", "BIN 1002", "BCM 2550", "MAT 1400"]
-
-n = length(session_1)
-
-for i=1:n, j=(i+1):n
-    a, b = session_1[i], session_1[j]
-    println("$a vs. $b\n")
-    checkConflict(a, b)
+for i=eachindex(section_v)
+    @constraint(model, sum(sec_var[i] * section_v[i].credit) ≤ 15)
 end
 
-sigle_a, sigle_b = "IFT 1015", "BIN 1002"
-alt = schedules(c, sigle_a)
-alt_b = schedules(c, sigle_b)
-comp = compatible(alt, alt_b)
-conf = conflict(alt, alt_b)
+for i=1:length(section_v), j=(i+1):length(section_v)
+    if conflict(section_v[i].spans, section_v[j].spans)
+        println("Conflict: $(section_v[i]) with $(section_v[j])")
+        @constraint(model, sec_var[i] + sec_var[j] ≤ 1)
+    end
+end
 
-s_a = alt[["A", "A101"]]
-s_b = alt_b[["A", "A1"]]
+@objective(model, Max, sum(sec_var[i] * section_v[i].credit for i=eachindex(section_v)))
 
-conflict(s_a, s_b)
+optimize!(model)
+
+section_v[value.(sec_var) .== 1.0]
