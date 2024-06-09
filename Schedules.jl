@@ -3,14 +3,14 @@ using CSV, StringEncodings, DataFrames
 
 include("Span.jl")
 
-struct Courses
+struct Schedules
     df::DataFrame
     sections::GroupedDataFrame
     sigle::GroupedDataFrame
     sect::Dict{String, Vector{String}}
 end
 
-function Courses(fas::String, med::String)
+function Schedules(fas::String, med::String)
     fas_df = CSV.read(open(fas, enc"ISO-8859-1"), DataFrame, header=9, footerskip=7)
     med_df = CSV.read(open(med, enc"ISO-8859-1"), DataFrame, header=9, footerskip=7)
     df = vcat(fas_df, med_df)
@@ -33,31 +33,33 @@ function Courses(fas::String, med::String)
         subdf = sigle_df[k]
         sect[last(subdf.sigle)] = unique(subdf.section)
     end
-    Courses(c_df, sections_df, sigle_df, sect)
+    Schedules(c_df, sections_df, sigle_df, sect)
 end
 
-function spans(c::Courses, sigle::String)
-    d = Dict{NTuple{2, String},Vector{Span}}()
+Base.getindex(c::Schedules, sigle::String, section::String) = c.sections[(sigle, section)]
+Base.getindex(c::Schedules, sigle::String) = c.sigle[(sigle,)]
+
+const daytoid = Dict(
+    "Lu" => Dates.Monday,
+    "Ma" => Dates.Tuesday,
+    "Me" => Dates.Wednesday,
+    "Je" => Dates.Thursday,
+    "Ve" => Dates.Friday,
+    "Sa" => Dates.Saturday,
+    "Di" => Dates.Sunday
+)
+
+function spans(c::Schedules, sigle::String)
+    res = DataFrame(sigle=String[], section=String[], volet=String[], sp=Vector{Span}[])
     df = c.sigle[(sigle,)]
-    volSec = [NTuple{2, String}((row.volet, row.section)) for row in eachrow(c.sigle[(sigle,)])] |> unique
-    for (volet, sec) in volSec
-        vs_df = df[df.volet .== volet .&& df.section .== sec,:]
-        d[(volet, sec)] = reduce(vcat, [expand(row.de, row.a, row.du, row.au) for row in eachrow(vs_df)])
+    
+    for row in eachrow(c.sigle[(sigle,)])
+        sp = expand(row.de, row.a, tonext(row.du, daytoid[row.jour], same=true), toprev(row.au, daytoid[row.jour], same=true), daytoid[row.jour])
+        push!(res, (sigle, row.section, row.volet, sp))
     end
-    d
+    return res
+    gdf = combine(groupby(res, [:section, :volet]), :sp => vcat)
+    gdf
 end
 
-# function spans(d::Dict{Tuple{String, String}, Vector{Span}}, t::Tuple{String, String})
-
-# end
-
-# ## test
-# d = spans(c, "IFT 1015")
-
-# k = keys(d)
-# for a in k, b in k
-#     a ≥ b && continue
-#     println("$a vs. $b = $(conflict(d[a], d[b]))")
-#     println(conflict_dt(d[a], d[b]))
-# end
-
+# res = spans(c, "IFT 1015")
