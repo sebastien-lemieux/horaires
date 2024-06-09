@@ -1,16 +1,22 @@
 using JuMP
 # using GLPK
-using Gurobi
+using Gurobi # Blazing fast!
+using JLD2
 
 include("Program.jl")
 include("Schedules.jl")
 include("Section.jl")
 
-prog = Program("https://admission.umontreal.ca/programmes/baccalaureat-en-bio-informatique/structure-du-programme/")
-schedules = Schedules("A2024_FAS.csv", "A2024_FMed.csv")
+if isfile("data.jld2")
+    prog, schedules, exigence_d = load("data.jld2", "prog", "schedules", "exigence_d")
+else
+    prog = Program("https://admission.umontreal.ca/programmes/baccalaureat-en-bio-informatique/structure-du-programme/")
+    schedules = Schedules("A2024_FAS.csv", "A2024_FMed.csv")
+    exigence_d = downloadExigences
+    save("data.jld2", Dict("prog" => prog, "schedules" => schedules, "exigence_d" => exigence_d))
+end
 
 course_list = prog.courses.sigle ∩ schedules.df.sigle
-#[:IFT_1015, :BIN_1002, :BCM_1501, :BCM_2550, :IFT_1215, :MAT_1400]
 
 model = Model(Gurobi.Optimizer)
 
@@ -38,3 +44,4 @@ end
 optimize!(model)
 
 section_v[value.(sec_var) .== 1.0]
+

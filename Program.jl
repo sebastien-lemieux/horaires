@@ -71,4 +71,28 @@ end
 
 Base.getindex(p::Program, sym::Symbol) = p.courses[findfirst(p.courses.sigle .== sym),:]
 
-# b, c = Program("https://admission.umontreal.ca/programmes/baccalaureat-en-bio-informatique/structure-du-programme/")
+sigle_sym(str) = Symbol(str[1:3] * '_' * str[4:end])
+
+# sigle = :BCM_2502 # OU
+# sigle = :IFT_2015 # ET
+# sigle = :IFT_3295 # +equivalence
+
+function getExigence(sigle::Symbol)
+    sigle_str = replace(string(sigle), '_' => '-') |> lowercase
+    cours_html = read_html("https://admission.umontreal.ca/cours-et-horaires/cours/$sigle_str/")
+    exigence_html = html_elements(cours_html, ".cours-exigence")
+    isempty(exigence_html) && return ""
+    return html_elements(exigence_html, "p") |> html_text3 |> first |> uppercase |> strip
+end
+
+function downloadExigences(prog::Program)
+    exigence_d = Dict{Symbol, String}()
+
+    for sigle in prog.courses.sigle
+        println(sigle)
+        haskey(exigence_d, sigle) && continue
+        string(sigle)[1:3] == "HEC" && continue
+        exigence_d[sigle] = getExigence(sigle)
+    end
+    return exigence_d
+end
