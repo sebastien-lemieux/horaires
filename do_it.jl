@@ -6,6 +6,7 @@ using JLD2
 include("Program.jl")
 include("Schedules.jl")
 include("Section.jl")
+include("Exigences.jl")
 
 if isfile("data.jld2")
     prog, schedules, exigence_d = load("data.jld2", "prog", "schedules", "exigence_d")
@@ -44,4 +45,8 @@ end
 optimize!(model)
 
 section_v[value.(sec_var) .== 1.0]
+
+
+
+
 
