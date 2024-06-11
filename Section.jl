@@ -23,9 +23,9 @@ function prepSections(s::Schedules, p::Program, sigle::Symbol)
     [Section(s, p, sigle, r) for r in res]
 end
 
-function checkConflict(schedules, sigle_a, sigle_b)
-    sections_a = prepSections(schedules, sigle_a)
-    sections_b = prepSections(schedules, sigle_b)
+function checkConflict(schedules, p::Program, sigle_a, sigle_b)
+    sections_a = prepSections(schedules, p, sigle_a)
+    sections_b = prepSections(schedules, p, sigle_b)
     for a in sections_a, b in sections_b
         cf = conflict_dt(a.spans, b.spans)
         if isempty(cf)

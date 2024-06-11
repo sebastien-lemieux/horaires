@@ -1,21 +1,21 @@
 using JuMP
-# using GLPK
-using Gurobi # Blazing fast!
+using Gurobi # Much faster than GLPK
 using JLD2
 
-include("Program.jl")
-include("Schedules.jl")
-include("Section.jl")
-include("Exigences.jl")
+include("Program.jl");
+include("Schedules.jl");
+include("Section.jl");
+include("Exigences.jl");
 
 if isfile("data.jld2")
-    prog, schedules, exigence_d = load("data.jld2", "prog", "schedules", "exigence_d")
+    prog, schedules = load("data.jld2", "prog", "schedules")
 else
     prog = Program("https://admission.umontreal.ca/programmes/baccalaureat-en-bio-informatique/structure-du-programme/")
     schedules = Schedules("A2024_FAS.csv", "A2024_FMed.csv")
-    exigence_d = downloadExigences
-    save("data.jld2", Dict("prog" => prog, "schedules" => schedules, "exigence_d" => exigence_d))
-end
+    scrapeExigences!(prog)
+    generateTestFunc!(prog)
+    save("data.jld2", Dict("prog" => prog, "schedules" => schedules))
+end;
 
 course_list = prog.courses.sigle ∩ schedules.df.sigle
 
