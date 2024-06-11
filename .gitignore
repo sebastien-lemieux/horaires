@@ -1,3 +1,4 @@
-/.vscode
-/Manifest.toml
-/from_synchro
+.vscode
+Manifest.toml
+from_synchro
+data.jld2
