@@ -1,0 +1,14 @@
+#!/bin/bash
+
+function check_sensitive {
+    local file="$1"
+    if grep -q "Salle" "$file"; then
+        echo "Cleaning up sensitive information from $file."
+        cut -f27-33 -d, --complement $file > $file
+    else
+        echo "$file is clean."
+    fi
+}
+
+check_sensitive A2024_FMed.csv
+check_sensitive A2024_FAS.csv

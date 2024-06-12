@@ -1,4 +1,4 @@
 .vscode
 Manifest.toml
-from_synchro
 data.jld2
+*.xlsx
