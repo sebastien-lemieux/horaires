@@ -27,7 +27,7 @@ end
 
 countIFT(done) = 0 # To be done
 
-function parse_prealable(str::String)::Function
+function parse_prealable(str::AbstractString)::Function
 
     if match(r"COLLÈGE", str) !== nothing # Don't consider CEGEP courses
         # println("COLLEGE warning: $str")
@@ -52,8 +52,8 @@ function parse_prealable(str::String)::Function
     return eval(Meta.parse("done -> $str"))
 end
 
-parse_equivalents(str::String)::Function = (done -> true) # To be done, if useful
-parse_concomitants(str::String)::Function = (done -> true) # To be done, if useful
+parse_equivalents(str::AbstractString)::Function = (done -> true) # To be done, if useful
+parse_concomitants(str::AbstractString)::Function = (done -> true) # To be done, if useful
 
 const ex_types = Dict("PRÉALABLES" => parse_prealable, "PRÉALABLE" => parse_prealable,
                       "ÉQUIVALENTS" => parse_equivalents, "CONCOMITANTS" => parse_concomitants)

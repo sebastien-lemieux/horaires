@@ -11,7 +11,7 @@ if isfile("data.jld2")
     prog, schedules = load("data.jld2", "prog", "schedules")
 else
     prog = Program("https://admission.umontreal.ca/programmes/baccalaureat-en-bio-informatique/structure-du-programme/")
-    schedules = Schedules("A2024_FAS.csv", "A2024_FMed.csv")
+    schedules = Schedules("from_synchro/A2024_FAS.csv", "from_synchro/A2024_FMed.csv")
     scrapeExigences!(prog)
     generateTestFunc!(prog)
     save("data.jld2", Dict("prog" => prog, "schedules" => schedules))
