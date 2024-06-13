@@ -4,7 +4,8 @@ function check_sensitive {
     local file="$1"
     if grep -q "Salle" "$file"; then
         echo "Cleaning up sensitive information from $file."
-        cut -f27-33 -d, --complement $file > $file
+        cut -f27-33 -d, --complement $file > tmp
+        mv tmp $file
     else
         echo "$file is clean."
     fi
