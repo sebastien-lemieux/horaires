@@ -1,4 +1,4 @@
 .vscode
 Manifest.toml
-data.jld2
+*.jld2
 *.xlsx
