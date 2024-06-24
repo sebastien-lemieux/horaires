@@ -70,5 +70,5 @@ function Program(url)
 end
 
 Base.getindex(p::Program, sym::Symbol) = p.courses[findfirst(p.courses.sigle .== sym),:]
-
 sigle_sym(str) = Symbol(str[1:3] * '_' * str[4:end])
+

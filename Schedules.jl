@@ -23,6 +23,7 @@ function Schedules(fas::String, med::String)
                      volet=df[!, "Volet"],
                      section=df[!, "Sect."],
                      statut=df[!, "Statut"],
+                     session=df[!, "Session"],
                      jour=df[!, "Jour"],
                      de=df[!, "De"],
                      a=df[!, "A"],
