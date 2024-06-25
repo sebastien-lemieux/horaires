@@ -60,8 +60,11 @@ for (i, sec) in enumerate(section_v)
 end
 
 ## Req must be Met
-for i=1:length(section_v)
-
+str = "IFT2015 ET (MAT1978 OU MAT1720 OU BIG9999)"
+generateLHS(str, course_j, :done_var)
+for sec in section_v
+    lhs = eval(generateLHS(str, course_j, :done_var))
+    @constraint(model, lhs ≥ 1)
 end
 
 ## No section in conflict
