@@ -25,7 +25,7 @@ end
 conflict(span_a::Span, span_b::Span) = (span_a.s <= span_b.e) && (span_a.e >= span_b.s)
 conflict_dt(span_a::Span, span_b::Span) = (span_a.s ≤ span_b.e && span_a.e ≥ span_b.e) ? Span(span_a.s, span_b.e) : Span(span_b.s, span_a.e)
 conflict(a::Vector{Span}, b::Vector{Span}) = any([conflict(sa, sb) for sa in a, sb in b])
-conflict_dt(a::Vector{Span}, b::Vector{Span})::Vector{Span} = [conflict_dt(sa, sb) for sa in a, sb in b if conflict(sa, sb)]
+conflict_dt(a::Vector{Span}, b::Vector{Span})::Vector{Span} = unique([conflict_dt(sa, sb) for sa in a, sb in b if conflict(sa, sb)])
 
 extract(span::Span) = Dates.format(span.s, "yyyy-mm-dd"), Dates.format(span.s, "HH:MM"), Dates.format(span.e, "HH:MM"), Dates.dayofweek(span.s)
 

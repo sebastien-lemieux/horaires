@@ -54,5 +54,5 @@ function generateLHS!(prog::Program, course_j, var)
 
     prog.courses.req_lhs = lhs
 end
-generateLHS!(prog, course_j, :done_var)
+# generateLHS!(prog, course_j, :done_var)
 
