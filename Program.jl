@@ -56,13 +56,13 @@ function Program(url)
         cours = html_elements(b, ".cour-detailles")
         for c in cours
             ci = html_elements(c, ".cour-intro")
-            cr_str = html_text3(html_elements(c, ".cour-credit"))[1]
-            cr = parse(Int, match(r"(?<cr>\d+).0.*", cr_str)["cr"])
+            #cr_str = html_text3(html_elements(c, ".cour-credit"))[1]
+            #cr = parse(Int, match(r"(?<cr>\d+).0.*", cr_str)["cr"])
             sigle_str = replace(html_text3(html_elements(c, ".stretched-link") |> first), ' ' => '_')
             push!(c_df, (bloc=bid,
-                         sigle=Symbol(sigle_str),
-                         nom = html_text3(first(html_elements(ci, "span"))),
-                         credit = cr))
+                         sigle=Symbol(sigle_str))) # ,
+                         #nom = html_text3(first(html_elements(ci, "span")))) # ,
+                         #credit = cr))
         end
     end
 

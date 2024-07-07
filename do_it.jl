@@ -8,24 +8,22 @@ include("Section.jl");
 include("Exigences.jl");
 include("Repertoire.jl");
 
-if isfile("repertoire.jld2")
-    repertoire = load("repertoire.jld2", "repertoire")
-else
-    repertoire = parseRepertoire("from_synchro/2023_2024_Répertoire_cours_1er_cycle_web.pdf")
-    save("repertoire.jld2", Dict("repertoire" => repertoire))
-end
+## Load or prepare data
 
 if isfile("data.jld2")
-    prog, schedules = load("data.jld2", "prog", "schedules")
+    prog, schedules, repertoire = load("data.jld2", "prog", "schedules", "repertoire")
 else
     prog = Program("https://admission.umontreal.ca/programmes/baccalaureat-en-bio-informatique/structure-du-programme/")
     schedules = Schedules("from_synchro/A2024_FAS.csv", "from_synchro/A2024_FMed.csv")
-    scrapeExigences!(prog)
-    # ***** do it using the repertoire *****
-    # generateTestFunc!(prog)
-    save("data.jld2", Dict("prog" => prog, "schedules" => schedules))
+    repertoire = parseRepertoire("from_synchro/2023_2024_Répertoire_cours_1er_cycle_web.pdf")
+    save("data.jld2", Dict("prog" => prog, "schedules" => schedules, "repertoire" => repertoire))
 end;
 
+# Play with data here!
+
+
+
+## Create and optimize model (WIP)
 
 # generateTestFunc!(prog)
 generateEq!(prog)

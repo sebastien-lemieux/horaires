@@ -1,6 +1,7 @@
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+FreqTables = "da1fdf0e-e0ff-5433-a45f-9bb5ff651cb1"
 GLPK = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"
 Gumbo = "708ec375-b3d6-5a57-a7ce-8257bf98657a"
 Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
@@ -11,4 +12,5 @@ JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 PDFIO = "4d0d745f-9d9a-592e-8d18-1ad8a0f42b92"
 StatProfilerHTML = "a8a75453-ed82-57c9-9e16-4cd1196ecbf5"
 StringEncodings = "69024149-9ee7-55f6-a4c4-859efe599b68"
+Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 TidierVest = "969b988e-7aed-4820-b60d-bdec252047c4"

@@ -30,13 +30,20 @@ function Schedules(fas::String, med::String)
                      du=df[!, "Du"],
                      au=df[!, "Au"],
                      spans=expand.(df[!, "De"], df[!, "A"], df[!, "Du"], df[!, "Au"], df[!, "Jour"]))
+    # Not tested vvv
+    select!(schedules.df, :, :jour => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :jour)
+    select!(schedules.df, :, :section => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :section)
+    select!(schedules.df, :, :statut => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :statut)
+    select!(schedules.df, :, :volet => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :volet)
+                     
 
-    sections_df = groupby(c_df, ["sigle", "section"])
-    sigle_df = groupby(c_df, "sigle")
+    # sections_df = groupby(c_df, ["sigle", "section"])
+    # sigle_df = groupby(c_df, "sigle")
     sect = Dict{Symbol, Vector{String}}()
     for k in keys(sigle_df)
         subdf = sigle_df[k]
         sect[last(subdf.sigle)] = unique(subdf.section)
     end
+
     Schedules(c_df, sections_df, sigle_df, sect)
 end
