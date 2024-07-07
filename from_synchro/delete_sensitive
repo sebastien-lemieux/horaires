@@ -11,5 +11,6 @@ function check_sensitive {
     fi
 }
 
-check_sensitive A2024_FMed.csv
-check_sensitive A2024_FAS.csv
+for f in *.csv; do
+    check_sensitive "$f"
+done
