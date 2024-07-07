@@ -7,11 +7,17 @@ struct Schedules
     df::DataFrame
     sections::GroupedDataFrame
     sigle::GroupedDataFrame
-    sect::Dict{Symbol, Vector{String}}
+    sec_d::Dict{Symbol, Vector{Symbol}}
 end
 
-Base.getindex(c::Schedules, sigle::Symbol, section::String) = c.sections[(sigle, section)]
+session_bool(session::Symbol) = [s == session for s in [:A, :H, :E]]
+
 Base.getindex(c::Schedules, sigle::Symbol) = c.sigle[(sigle,)]
+Base.getindex(c::Schedules, sec::Section) = subset(c[sec.sigle, sec.session, sec.year], :section => ByRow(x -> x ∈ sec.sec))
+
+function Base.getindex(c::Schedules, sigle::Symbol, session::Symbol, year::Int)
+    c.sections[(sigle, year, session_bool(session)...)]
+end
 
 function Schedules()
     csv_f = filter(fn -> endswith(fn, ".csv"), readdir("from_synchro", join=true))
@@ -19,52 +25,40 @@ function Schedules()
     for f in csv_f
         println(f)
         df = CSV.read(open(f, enc"ISO-8859-1"), DataFrame, header=9, footerskip=7)
-        m = match(r"/(.)(....).*", f)
-        println(m[1] == "A")
-        df[!, :a] .= (m[1] == "A")
-        df[!, :h] .= (m[1] == "H")
-        df[!, :e] .= (m[1] == "E")
-        df[!, :annee] .= parse(Int, m[2])
-
-        all_df = vcat(all_df, df)
-    end
-
-    return all_df
-end
-s = Schedules()
-
-
-function Schedules(fas::String, med::String)
-    fas_df = CSV.read(open(fas, enc"ISO-8859-1"), DataFrame, header=9, footerskip=7)
-    med_df = CSV.read(open(med, enc"ISO-8859-1"), DataFrame, header=9, footerskip=7)
-    df = vcat(fas_df, med_df)
-    sigle = Symbol.(df[!, "Mat."] .* "_" .* df[!, "Num. rép."])
-    c_df = DataFrame(sigle=sigle,
+        sigle = Symbol.(df[!, "Mat."] .* "_" .* df[!, "Num. rép."])
+        c_df = DataFrame(sigle=sigle,
                      nom=df[!, "Titre"],
                      volet=df[!, "Volet"],
                      section=df[!, "Sect."],
                      statut=df[!, "Statut"],
-                     session=df[!, "Session"],
                      jour=df[!, "Jour"],
                      de=df[!, "De"],
                      a=df[!, "A"],
                      du=df[!, "Du"],
                      au=df[!, "Au"],
                      spans=expand.(df[!, "De"], df[!, "A"], df[!, "Du"], df[!, "Au"], df[!, "Jour"]))
-    # Not tested vvv
-    select!(schedules.df, :, :jour => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :jour)
-    select!(schedules.df, :, :section => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :section)
-    select!(schedules.df, :, :statut => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :statut)
-    select!(schedules.df, :, :volet => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :volet)
-                     
 
-    # sections_df = groupby(c_df, ["sigle", "section"])
-    # sigle_df = groupby(c_df, "sigle")
-    sect = Dict{Symbol, Vector{String}}()
-    for k in keys(sigle_df)
-        subdf = sigle_df[k]
-        sect[last(subdf.sigle)] = unique(subdf.section)
+        m = match(r"/(.)(....).*", f)
+        c_df[!, :A] .= (m[1] == "A")
+        c_df[!, :H] .= (m[1] == "H")
+        c_df[!, :E] .= (m[1] == "E")
+        c_df[!, :annee] .= parse(Int, m[2])
+
+        all_df = vcat(all_df, c_df)
     end
 
-    Schedules(c_df, sections_df, sigle_df, sect)
+    select!(all_df, :, :jour => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :jour)
+    select!(all_df, :, :section => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :section)
+    select!(all_df, :, :statut => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :statut)
+    select!(all_df, :, :volet => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :volet)
+
+    sections_df = groupby(schedules.df, [:sigle, :annee, :A, :H, :E])
+    sigle_df = groupby(all_df, :sigle)
+    sect_d = Dict{Symbol, Vector{Symbol}}()
+    for k in keys(sigle_df)
+        subdf = sigle_df[k]
+        sect_d[last(subdf.sigle)] = unique(subdf.section)
+    end
+
+    return Schedules(all_df, sections_df, sigle_df, sect_d)
 end

@@ -10,6 +10,7 @@
 - Intégration des préalables dans l'optimisation.
 - Permettre d'indiquer les cours déjà faits (juste un fichier, indiquant dans quels blocs ils sont entrés aussi).
 - Permettre de donner une préférence sur les cours qui restent à faire. Un CSV pourrait être généré avec toutes préférences à 0, l'utilisateur viendrait ensuite éditer.
+- Si j'ai cours XYZ, quels cours je peux prendre au programme (et le bloc)
 
 ### Points d'entrées au code:
 - **do_it.jl:** Parse le programme + tous les horaires de cours puis "optimise" un horaire de 15 crédits sans conflits.

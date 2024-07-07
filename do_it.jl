@@ -1,10 +1,10 @@
-using JuMP
-using Gurobi # Much faster than GLPK
+# using JuMP
+# using Gurobi # Much faster than GLPK
 using JLD2
 
 include("Program.jl");
-include("Section.jl");
 include("Schedules.jl");
+include("Section.jl");
 include("Exigences.jl");
 include("Repertoire.jl");
 
@@ -14,13 +14,23 @@ if isfile("data.jld2")
     prog, schedules, repertoire = load("data.jld2", "prog", "schedules", "repertoire")
 else
     prog = Program("https://admission.umontreal.ca/programmes/baccalaureat-en-bio-informatique/structure-du-programme/")
-    schedules = Schedules("from_synchro/A2024_FAS.csv", "from_synchro/A2024_FMed.csv")
+    schedules = Schedules()
     repertoire = parseRepertoire("from_synchro/2023_2024_Répertoire_cours_1er_cycle_web.pdf")
     save("data.jld2", Dict("prog" => prog, "schedules" => schedules, "repertoire" => repertoire))
 end;
 
 # Play with data here!
 
+deja = [:BCM_1501, :BCM_2550, :BIN_1002, :BIO_1203]
+session, annee = :H, 2024
+
+function solution(s::Schedule, sigle_v)
+
+end
+
+function _solution(s::Schedule, section_v)
+    
+end
 
 
 ## Create and optimize model (WIP)
