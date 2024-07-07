@@ -13,6 +13,27 @@ end
 Base.getindex(c::Schedules, sigle::Symbol, section::String) = c.sections[(sigle, section)]
 Base.getindex(c::Schedules, sigle::Symbol) = c.sigle[(sigle,)]
 
+function Schedules()
+    csv_f = filter(fn -> endswith(fn, ".csv"), readdir("from_synchro", join=true))
+    all_df = DataFrame()
+    for f in csv_f
+        println(f)
+        df = CSV.read(open(f, enc"ISO-8859-1"), DataFrame, header=9, footerskip=7)
+        m = match(r"/(.)(....).*", f)
+        println(m[1] == "A")
+        df[!, :a] .= (m[1] == "A")
+        df[!, :h] .= (m[1] == "H")
+        df[!, :e] .= (m[1] == "E")
+        df[!, :annee] .= parse(Int, m[2])
+
+        all_df = vcat(all_df, df)
+    end
+
+    return all_df
+end
+s = Schedules()
+
+
 function Schedules(fas::String, med::String)
     fas_df = CSV.read(open(fas, enc"ISO-8859-1"), DataFrame, header=9, footerskip=7)
     med_df = CSV.read(open(med, enc"ISO-8859-1"), DataFrame, header=9, footerskip=7)

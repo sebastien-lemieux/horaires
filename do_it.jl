@@ -3,8 +3,8 @@ using Gurobi # Much faster than GLPK
 using JLD2
 
 include("Program.jl");
-include("Schedules.jl");
 include("Section.jl");
+include("Schedules.jl");
 include("Exigences.jl");
 include("Repertoire.jl");
 

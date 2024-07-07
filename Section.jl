@@ -2,7 +2,7 @@
 struct Section{T <: AbstractString}
     sigle::Symbol
     sec::Set{T}
-    spans::Vector{Span}
+    #spans::Vector{Span}
     credit::Int
 end
 
