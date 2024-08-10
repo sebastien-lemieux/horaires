@@ -1,72 +1,94 @@
-using TidierVest, Gumbo, DataFrames, HTTP
+using DataFrames, HTTP, JSON
 
-struct BlocCredits
-    type::Symbol
-    minimum::Int
-    maximum::Int
+function get_programs(url)
+    rsp = HTTP.get(url)
+    @assert(rsp.status == 200)
+    typeof(rsp.body)
+    prs = JSON.parse(String(rsp.body))
+    return prs["programs"]
 end
 
-function BlocCredits(str)
-    tmp_min, tmp_max, tmp_cr = -1, -1, -1
-
-    m = match(r"^(?<type>\w+) - (?<constraints>.*)\.$"i, str)
-    type = Symbol(lowercase(m["type"]))
-
-    for tmp in eachmatch(r"(?:(?<dir>minimum|maximum|) )?(?<cr>\d+) crédits"i, m["constraints"])
-        if tmp["dir"] === nothing
-            tmp_cr = parse(Int, tmp["cr"])
-        elseif lowercase(tmp["dir"]) == "minimum"
-            tmp_min = parse(Int, tmp["cr"])
-        elseif lowercase(tmp["dir"]) == "maximum"
-            tmp_max = parse(Int, tmp["cr"])
+function get_program(progs, name)
+    for prog in progs
+        if prog["name"] == name
+            return prog
         end
     end
-
-    if type == :obligatoire
-        tmp_min = tmp_cr
-        tmp_max = tmp_cr
-    elseif type == :choix
-        tmp_min = 0
-        tmp_max = tmp_cr
-    elseif type == :option
-        tmp_min == -1 && (tmp_min = 0)
-    end
-
-    BlocCredits(type, tmp_min, tmp_max)
+    return nothing
 end
+
+# # url = "https://planifium-api.onrender.com/api/v1/programs"
+# url = "https://planifium-api.onrender.com/api/v1/programs?programs_list=[\"146811\"]"
+# # name = "Baccalauréat en bio-informatique (B. Sc.)"
+
+# # progs = get_programs(url);
+# # prog = get_program(progs, name);
+# prog = get_programs(url)[1];
+
+struct Bloc
+    name::String
+    max::Int
+    min::Int
+    id::Symbol
+    # description::String # Not needed?
+    # type::String # Not needed?
+    courses::Vector{Symbol}
+end
+
+function json_to_bloc(bloc_json)
+    courses = Symbol.(bloc_json["courses"])
+    Bloc(
+        bloc_json["name"],
+        round(Int, bloc_json["max"]),
+        round(Int, bloc_json["min"]),
+        Symbol(bloc_json["id"]),
+        # bloc_json["description"],
+        # bloc_json["type"],
+        courses
+    )
+end
+
+# json_to_bloc(prog["segments"][1]["blocs"][1])
+
+struct Segment
+    name::String
+    id::Symbol
+    blocs::Vector{Bloc}
+    description::String
+end
+
+function json_to_segment(segment_json)
+    blocs = [json_to_bloc(bloc) for bloc in segment_json["blocs"]]
+    Segment(
+        segment_json["name"],
+        Symbol(segment_json["id"]),
+        blocs,
+        segment_json["description"]
+    )
+end
+
+# json_to_segment(prog["segments"][1])
 
 struct Program
-    blocs::DataFrame
-    courses::DataFrame
+    name::String
+    id::Symbol
+    segments::Vector{Segment}
+    structure::String # need to parse
+    # courses::Vector{Symbol}
 end
 
-function Program(url)
-    prog = read_html(url)
-    blocs = html_elements(prog, [".bloc"])
-
-    b_df = DataFrame()
-    c_df = DataFrame()
-    for b in blocs
-
-        bid = Symbol(split(html_text3(first(html_elements(b, "h4"))))[2])
-        bloc_credits = BlocCredits(html_text3(first(html_elements(b, "small"))))
-        println("$bid : $bloc_credits")
-        push!(b_df, (bid = bid, constraint=bloc_credits))
-
-        cours = html_elements(b, ".cour-detailles")
-        for c in cours
-            ci = html_elements(c, ".cour-intro")
-            #cr_str = html_text3(html_elements(c, ".cour-credit"))[1]
-            #cr = parse(Int, match(r"(?<cr>\d+).0.*", cr_str)["cr"])
-            sigle_str = replace(html_text3(html_elements(c, ".stretched-link") |> first), ' ' => '_')
-            push!(c_df, (bloc=bid,
-                         sigle=Symbol(sigle_str)))
-        end
-    end
-
-    Program(b_df, c_df)
+function json_to_program(program_json)
+    segments = [json_to_segment(segment) for segment in program_json["segments"]]
+    Program(
+        program_json["name"],
+        Symbol(program_json["_id"]),
+        segments,
+        program_json["structure"]
+    )
 end
 
-Base.getindex(p::Program, sym::Symbol) = p.courses[findfirst(p.courses.sigle .== sym),:]
-sigle_sym(str) = Symbol(str[1:3] * '_' * str[4:end])
+# p = json_to_program(prog)
 
+# Still needed?
+# Base.getindex(p::Program, sym::Symbol) = p.courses[findfirst(p.courses.sigle .== sym),:]
+# sigle_sym(str) = Symbol(str[1:3] * '_' * str[4:end])
