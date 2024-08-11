@@ -1,37 +1,10 @@
 using DataFrames, HTTP, JSON
 
-function get_programs(url)
-    rsp = HTTP.get(url)
-    @assert(rsp.status == 200)
-    typeof(rsp.body)
-    prs = JSON.parse(String(rsp.body))
-    return prs["programs"]
-end
-
-function get_program(progs, name)
-    for prog in progs
-        if prog["name"] == name
-            return prog
-        end
-    end
-    return nothing
-end
-
-# # url = "https://planifium-api.onrender.com/api/v1/programs"
-# url = "https://planifium-api.onrender.com/api/v1/programs?programs_list=[\"146811\"]"
-# # name = "Baccalauréat en bio-informatique (B. Sc.)"
-
-# # progs = get_programs(url);
-# # prog = get_program(progs, name);
-# prog = get_programs(url)[1];
-
 struct Bloc
     name::String
     max::Int
     min::Int
     id::Symbol
-    # description::String # Not needed?
-    # type::String # Not needed?
     courses::Vector{Symbol}
 end
 
@@ -42,13 +15,9 @@ function json_to_bloc(bloc_json)
         round(Int, bloc_json["max"]),
         round(Int, bloc_json["min"]),
         Symbol(bloc_json["id"]),
-        # bloc_json["description"],
-        # bloc_json["type"],
         courses
     )
 end
-
-# json_to_bloc(prog["segments"][1]["blocs"][1])
 
 struct Segment
     name::String
@@ -67,17 +36,14 @@ function json_to_segment(segment_json)
     )
 end
 
-# json_to_segment(prog["segments"][1])
-
 struct Program
     name::String
     id::Symbol
     segments::Vector{Segment}
     structure::String # need to parse
-    # courses::Vector{Symbol}
 end
 
-function json_to_program(program_json)
+function Program(program_json)
     segments = [json_to_segment(segment) for segment in program_json["segments"]]
     Program(
         program_json["name"],
@@ -87,8 +53,20 @@ function json_to_program(program_json)
     )
 end
 
-# p = json_to_program(prog)
+function get_programs(url)
+    rsp = HTTP.get(url)
+    @assert(rsp.status == 200)
+    prs = JSON.parse(String(rsp.body))["programs"]
 
-# Still needed?
-# Base.getindex(p::Program, sym::Symbol) = p.courses[findfirst(p.courses.sigle .== sym),:]
-# sigle_sym(str) = Symbol(str[1:3] * '_' * str[4:end])
+    p = Dict{Symbol, Program}()
+
+    for prog_json in prs
+        prog = Program(prog_json)
+        p[prog.id] = prog
+    end
+
+    return p
+end
+
+# p = get_programs(url)
+

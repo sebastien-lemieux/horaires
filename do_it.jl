@@ -3,20 +3,20 @@
 using JLD2
 
 include("Program.jl");
-include("Schedules.jl");
-include("Section.jl");
-include("Exigences.jl");
 include("Repertoire.jl");
+
+# include("Schedules.jl");
+# include("Section.jl");
+# include("Exigences.jl");
 
 ## Load or prepare data
 
 if isfile("data.jld2")
-    prog, schedules, repertoire = load("data.jld2", "prog", "schedules", "repertoire")
+    p, r = load("data.jld2", "p", "r")
 else
-    prog = Program("https://admission.umontreal.ca/programmes/baccalaureat-en-bio-informatique/structure-du-programme/")
-    schedules = Schedules()
-    repertoire = parseRepertoire("from_synchro/2023_2024_Répertoire_cours_1er_cycle_web.pdf")
-    save("data.jld2", Dict("prog" => prog, "schedules" => schedules, "repertoire" => repertoire))
+    p = get_programs("https://planifium-api.onrender.com/api/v1/programs")
+    r = Repertoire("https://planifium-api.onrender.com/api/v1/courses")
+    save("data.jld2", Dict("p" => p, "r" => r))
 end;
 
 # Play with data here!
