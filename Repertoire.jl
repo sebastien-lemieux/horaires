@@ -51,7 +51,6 @@ function Repertoire(url::String)
     df = DataFrame(id=Symbol[], name=String[], description=String[], requirement_text=String[], credits=Float32[], winter=Bool[], summer=Bool[], autumn=Bool[], daytime=Bool[], evening=Bool[])
     for c in crs
         push_course!(df, c)
-
     end
     return Repertoire(df)
 end

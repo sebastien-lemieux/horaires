@@ -1,64 +1,34 @@
-# using Revise
-using CSV, StringEncodings, DataFrames
-
 include("Span.jl")
 
 struct Schedules
     df::DataFrame
-    sections::GroupedDataFrame
-    sigle::GroupedDataFrame
-    sec_d::Dict{Symbol, Vector{Symbol}}
+    # sections::GroupedDataFrame
+    # sigle::GroupedDataFrame
+    # sec_d::Dict{Symbol, Vector{Symbol}}
 end
 
-session_bool(session::Symbol) = [s == session for s in [:A, :H, :E]]
+# A specific course at a given session
+url = "https://planifium-api.onrender.com/api/v1/schedules?courses_list=['IFT1015']&min_semester=A24"
 
-Base.getindex(c::Schedules, sigle::Symbol) = c.sigle[(sigle,)]
-Base.getindex(c::Schedules, sec::Section) = subset(c[sec.sigle, sec.session, sec.year], :section => ByRow(x -> x ∈ sec.sec))
+rsp = HTTP.get(url)
+# write("bioinfo.json", String(rsp.body))
+@assert(rsp.status == 200)
+crs = JSON.parse(String(rsp.body))
 
-function Base.getindex(c::Schedules, sigle::Symbol, session::Symbol, year::Int)
-    c.sections[(sigle, year, session_bool(session)...)]
+prog = get_program(p, 146811)
+
+function collect_courses(prog::Program)
+    lst = Symbol[]
+    for seg in prog.segments
+        for blk in seg.blocs
+            lst = vcat(lst, blk.courses)
+        end
+    end
+    return unique(lst)
 end
 
-function Schedules()
-    csv_f = filter(fn -> endswith(fn, ".csv"), readdir("from_synchro", join=true))
-    all_df = DataFrame()
-    for f in csv_f
-        println(f)
-        df = CSV.read(open(f, enc"ISO-8859-1"), DataFrame, header=9, footerskip=7)
-        sigle = Symbol.(df[!, "Mat."] .* "_" .* df[!, "Num. rép."])
-        c_df = DataFrame(sigle=sigle,
-                     nom=df[!, "Titre"],
-                     volet=df[!, "Volet"],
-                     section=df[!, "Sect."],
-                     statut=df[!, "Statut"],
-                     jour=df[!, "Jour"],
-                     de=df[!, "De"],
-                     a=df[!, "A"],
-                     du=df[!, "Du"],
-                     au=df[!, "Au"],
-                     spans=expand.(df[!, "De"], df[!, "A"], df[!, "Du"], df[!, "Au"], df[!, "Jour"]))
+collect_courses(prog)
 
-        m = match(r"/(.)(....).*", f)
-        c_df[!, :A] .= (m[1] == "A")
-        c_df[!, :H] .= (m[1] == "H")
-        c_df[!, :E] .= (m[1] == "E")
-        c_df[!, :annee] .= parse(Int, m[2])
-
-        all_df = vcat(all_df, c_df)
-    end
-
-    select!(all_df, :, :jour => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :jour)
-    select!(all_df, :, :section => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :section)
-    select!(all_df, :, :statut => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :statut)
-    select!(all_df, :, :volet => ByRow(x -> ismissing(x) ? :missing : Symbol(x)) => :volet)
-
-    sections_df = groupby(schedules.df, [:sigle, :annee, :A, :H, :E])
-    sigle_df = groupby(all_df, :sigle)
-    sect_d = Dict{Symbol, Vector{Symbol}}()
-    for k in keys(sigle_df)
-        subdf = sigle_df[k]
-        sect_d[last(subdf.sigle)] = unique(subdf.section)
-    end
-
-    return Schedules(all_df, sections_df, sigle_df, sect_d)
+for s in crs[1]["sections"]
+    println(s["name"])
 end

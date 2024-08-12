@@ -68,5 +68,8 @@ function get_programs(url)
     return p
 end
 
-# p = get_programs(url)
+function get_program(p, id::Int)
+    return p[Symbol(id)]
+end
 
+# get_program(p, 146811)
