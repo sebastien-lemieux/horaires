@@ -1,10 +1,18 @@
+module ModuleS
+
 using DataFrames, HTTP, JSON, JLD2
 
+struct Schedules end
+
 include("Span.jl")
+include("Mask.jl")
 
 struct Schedules
     df::DataFrame
 end
+
+Base.getindex(s::Schedules, col::Symbol, val::T) where T <: Union{String, Symbol} = Mask{Schedules}(s.df[!, col] .== val)
+Base.getindex(s::Schedules, mask::Mask{Schedules}) = s.df[mask.m, :]
 
 # A specific course at a given session
 # url = "https://planifium-api.onrender.com/api/v1/schedules?courses_list=['IFT1015']&min_semester=A24"
@@ -74,6 +82,7 @@ function fixSched!(df::DataFrame)
     # select!(df, :, :sections_volets_activities_start_date => ByRow(Symbol) => :start_date)
     # select!(df, :, :sections_volets_activities_end_date => ByRow(Symbol) => :end_date)
     # select!(df, :, :semester_int => ByRow(Symbol) => :semester_int)
+    df.row_id = 1:nrow(df)
     
     col_needed = [
         :sections_volets_activities_start_time,
@@ -82,7 +91,7 @@ function fixSched!(df::DataFrame)
         :sections_volets_activities_end_date,
         # :jour # this is converted to a Symbol already and still needed
     ]
-    select!(df, Not(col_needed), [col_needed; :jour] => ByRow(expand) => :span)
+    select!(df, Not(col_needed), [:row_id; col_needed; :jour] => ByRow(expand) => :span)
 end
 
 ## Get from URL
@@ -104,5 +113,4 @@ function Schedules(url::String)
     return schedules
 end
 
-
-
+end

@@ -24,8 +24,20 @@ end;
 # Play with data here!
 
 prog = p["Baccalauréat en bio-informatique (B. Sc.)"]
+# prog = p[Symbol("146811")]
+courses = getcourses(prog)
 
+r[prog] # Returns 
 
+a = s[:semester, :A24]
+b1 = s[:sigle, :IFT1015]
+b2 = s[:sigle, :BIN1002]
+c = s[:section, :B] | s[:section, :B101]
+
+span1 = sort(vcat(s[a & b1 & c].span...))
+span2 = sort(vcat(s[a & b2].span...))
+
+conflict(span1, span2)
 
 deja = [:BCM_1501, :BCM_2550, :BIN_1002, :BIO_1203]
 session, annee = :A, 2024

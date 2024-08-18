@@ -7,21 +7,6 @@ struct Repertoire
     df::DataFrame
 end
 
-# url = "https://planifium-api.onrender.com/api/v1/courses"
-
-# function Repertoire(url)
-#     rsp = HTTP.get(url)
-#     @assert(rsp.status == 200)
-#     crs = JSON.parse(String(rsp.body))
-#     return crs
-#     # return crs["programs"]
-# end
-
-# #for test
-# rep = Repertoire(url)
-# # 12.4 sec
-# crs = JSON.parse(rep)
-
 function push_course!(df::DataFrame, crs::Dict{String, Any})
     course_data = Dict{Symbol, Any}()
     course_data[:id] = Symbol(crs["_id"])
@@ -55,4 +40,12 @@ function Repertoire(url::String)
     return Repertoire(df)
 end
 
+# Search on course id Symbol (ex. :IFT1015)
+Base.getindex(r::Repertoire, sym::Symbol) = r.df[r.df.id .== sym, :]
+Base.getindex(r::Repertoire, v::Vector{Symbol}) = vcat([r[sym] for sym in v]...)
+Base.getindex(r::Repertoire, prog::Program) = r[getcourses(prog)]
 
+# Search with regex on course name (ex. r"programmation"i)
+Base.getindex(r::Repertoire, regex::Regex) = r.df[.!isnothing.(match.(regex, r.df.name)), :]
+
+credits(r::Repertoire, sym::Symbol) = r[sym][1, :credits]
