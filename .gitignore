@@ -3,3 +3,4 @@ Manifest.toml
 *.jld2
 *.xlsx
 bioinfo.json
+_id (string)
