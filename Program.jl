@@ -53,23 +53,43 @@ function Program(program_json)
     )
 end
 
-function get_programs(url)
+struct Programs
+    progs::Vector{Program}
+    id::Dict{Symbol, Int}
+    name::Dict{String, Int}
+end
+
+function Programs(url::String)
     rsp = HTTP.get(url)
     @assert(rsp.status == 200)
     prs = JSON.parse(String(rsp.body))["programs"]
 
-    p = Dict{Symbol, Program}()
+    progs = Program[]
+    id = Dict{Symbol, Int}()
+    name = Dict{String, Int}()
 
     for prog_json in prs
         prog = Program(prog_json)
-        p[prog.id] = prog
+        push!(progs, prog)
+        id[prog.id] = length(progs)
+        name[prog.name] = length(progs)
     end
 
-    return p
+    return Programs(progs, id, name)
 end
 
-function get_program(p, id::Int)
-    return p[Symbol(id)]
+Base.getindex(p::Programs, index::Int) = p.progs[index]
+Base.getindex(p::Programs, sym::Symbol) = p.progs[p.id[sym]]
+Base.getindex(p::Programs, name::String) = p.progs[p.name[name]]
+Base.getindex(p::Programs, r::Regex) = [p.progs[i] for (name, i) in p.name if !isnothing(match(r, name))]
+
+function getcourses(p::Program)
+    c = Symbol[]
+    for segment in p.segments
+        for bloc in segment.blocs
+            c = vcat(c, bloc.courses)
+        end
+    end
+    return c
 end
 
-# get_program(p, 146811)

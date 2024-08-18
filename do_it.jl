@@ -14,17 +14,21 @@ include("Schedules.jl");
 if isfile("data.jld2")
     p, r, s = load("data.jld2", "p", "r", "s")
 else
-    p = get_programs("https://planifium-api.onrender.com/api/v1/programs")
+    p = Programs("https://planifium-api.onrender.com/api/v1/programs")
     r = Repertoire("https://planifium-api.onrender.com/api/v1/courses")
     s = Schedules("https://planifium-api.onrender.com/api/v1/schedules")
 
-    save("data.jld2", Dict("p" => p, "r" => r, "p" => p))
+    save("data.jld2", Dict("p" => p, "r" => r, "s" => s))
 end;
 
 # Play with data here!
 
+prog = p["Baccalauréat en bio-informatique (B. Sc.)"]
+
+
+
 deja = [:BCM_1501, :BCM_2550, :BIN_1002, :BIO_1203]
-session, annee = :H, 2024
+session, annee = :A, 2024
 
 function solution(s::Schedule, sigle_v)
 

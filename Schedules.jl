@@ -6,8 +6,6 @@ struct Schedules
     df::DataFrame
 end
 
-# getproperty(s::Schedules, sym::Symbol) = getproperty(s.df, sym)
-
 # A specific course at a given session
 # url = "https://planifium-api.onrender.com/api/v1/schedules?courses_list=['IFT1015']&min_semester=A24"
 ## Parsing JSON
