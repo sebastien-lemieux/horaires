@@ -1,6 +1,6 @@
 using Dates
 
-const idtoday = ["Lu", "Ma", "Me", "Je", "Ve", "Sa", "De"]
+const idtoday = [:Lu, :Ma, :Me, :Je, :Ve, :Sa, :De]
 const daytoid = Dict(idtoday .=> 1:length(idtoday))
 
 struct Span
@@ -10,13 +10,16 @@ end
 
 Span(time_s::Time, time_e::Time, date_s::Date, date_e::Date) = Span(DateTime(date_s, time_s), DateTime(date_e, time_e))
 
-function expand(time_s::String, time_e::String, date_s::String, date_e::String, dow::String)
+function expand(time_s::String, time_e::String, date_s::String, date_e::String, dow::Symbol)
+    # At the time this is called
     sp = Span[]
-    any([time_s, time_e, date_s, date_e, dow] .== "") && return sp
+    any([time_s, time_e, date_s, date_e] .== "") && return sp
+    dow == Symbol("") && return sp
     try
         sp = expand(Time(time_s), Time(time_e),Date(date_s) ,Date(date_e), daytoid[dow])
     catch e
         println(join([time_s, time_e, date_s, date_e, dow], ", "))
+        throw(e)
     end
     return sp
 end

@@ -4,24 +4,13 @@ include("Span.jl")
 
 struct Schedules
     df::DataFrame
-    # sections::GroupedDataFrame
-    # sigle::GroupedDataFrame
-    # sec_d::Dict{Symbol, Vector{Symbol}}
 end
+
+# getproperty(s::Schedules, sym::Symbol) = getproperty(s.df, sym)
 
 # A specific course at a given session
 # url = "https://planifium-api.onrender.com/api/v1/schedules?courses_list=['IFT1015']&min_semester=A24"
-if isfile("schedules.jld2")
-    crs = load("schedules.jld2", "crs")
-else
-    url = "https://planifium-api.onrender.com/api/v1/schedules"
-    rsp = HTTP.get(url)
-    # write("bioinfo.json", String(rsp.body))
-    @assert(rsp.status == 200)
-    crs = JSON.parse(String(rsp.body))
-    save("schedules.jld2", Dict("crs" => crs))
-end;
-
+## Parsing JSON
 
 function _addtorow!(d::Dict{String, Any}, row_df=DataFrame(), path=String[])
     for (k, v) in d
@@ -63,73 +52,59 @@ function _addtorow!(elem::Union{Real, AbstractString}, row_df=DataFrame(), path=
     return row_df
 end
 
-as = _addtorow!(crs)
+function fixSched!(df::DataFrame)
+    select!(df, Not(:sigle), :sigle => ByRow(Symbol) => :sigle; )
+    select!(df, Not(:name), :name => ByRow(Symbol) => :name)
+    select!(df, Not(:_id), :_id => ByRow(Symbol) => :id)
+    select!(df, Not(:sections_name), :sections_name => ByRow(Symbol) => :section)
+    select!(df, Not(:sections_number_inscription), :sections_number_inscription => ByRow(identity) => :inscription)
+    select!(df, Not(:sections_volets_activities_place), :sections_volets_activities_place => ByRow(Symbol) => :place)
+    select!(df, Not(:sections_volets_activities_campus), :sections_volets_activities_campus => ByRow(Symbol) => :campus)
+    # select!(df, Not(:sections_volets_activities_days), :sections_volets_activities_days => ByRow(Symbol) => :day)
+    select!(df, Not(:sections_volets_activities_pavillon_name), :sections_volets_activities_pavillon_name => ByRow(Symbol) => :pavillon_name)
+    select!(df, Not(:sections_volets_activities_mode), :sections_volets_activities_mode => ByRow(Symbol) => :mode)
+    select!(df, Not(:sections_volets_activities_room), :sections_volets_activities_room => ByRow(Symbol) => :room)
+    select!(df, Not(:sections_volets_name), :sections_volets_name => ByRow(Symbol) => :volet)
+    select!(df, Not(:sections_teachers), :sections_teachers => ByRow(Symbol) => :teachers)
+    select!(df, Not(:sections_capacity), :sections_capacity => ByRow(identity) => :capacity)
+    select!(df, Not(:semester), :semester => ByRow(Symbol) => :semester)
+    select!(df, Not(:fetch_date), :fetch_date => ByRow(Date) => :fetch_date)
+    select!(df, Not(:id), :id => ByRow(Symbol) => :id)
+    select!(df, Not(:sections_volets_activities_days), :sections_volets_activities_days => ByRow(Symbol) => :jour)
+    # select!(df, :, :sections_volets_activities_start_time => ByRow(Symbol) => :start_time)
+    # select!(df, :, :sections_volets_activities_end_time => ByRow(Symbol) => :end_time)
+    # select!(df, :, :sections_volets_activities_start_date => ByRow(Symbol) => :start_date)
+    # select!(df, :, :sections_volets_activities_end_date => ByRow(Symbol) => :end_date)
+    # select!(df, :, :semester_int => ByRow(Symbol) => :semester_int)
+    
+    col_needed = [
+        :sections_volets_activities_start_time,
+        :sections_volets_activities_end_time,
+        :sections_volets_activities_start_date,
+        :sections_volets_activities_end_date,
+        # :jour # this is converted to a Symbol already and still needed
+    ]
+    select!(df, Not(col_needed), [col_needed; :jour] => ByRow(expand) => :span)
+end
 
-select!(as, :, :sigle => ByRow(Symbol) => :sigle)
-select!(as, :, :name => ByRow(Symbol) => :name)
-select!(as, :, :_id => ByRow(Symbol) => :id, copycols=false)
-select!(as, :, :sections_name => ByRow(Symbol) => :section)
-select!(as, :, :inscription => ByRow(identity) => :inscription)
-# select!(as, :, :sections_volets_activities_start_time => ByRow(Symbol) => :start_time)
-# select!(as, :, :sections_volets_activities_end_time => ByRow(Symbol) => :end_time)
-select!(as, :, :sections_volets_activities_place => ByRow(Symbol) => :place)
-select!(as, :, :sections_volets_activities_campus => ByRow(Symbol) => :campus)
-select!(as, :, :sections_volets_activities_days => ByRow(Symbol) => :day)
-# select!(as, :, :sections_volets_activities_start_date => ByRow(Symbol) => :start_date)
-# select!(as, :, :sections_volets_activities_end_date => ByRow(Symbol) => :end_date)
-select!(as, :, :sections_volets_activities_pavillon_name => ByRow(Symbol) => :pavillon_name)
-select!(as, :, :sections_volets_activities_mode => ByRow(Symbol) => :mode)
-select!(as, :, :sections_volets_activities_room => ByRow(Symbol) => :room)
-select!(as, :, :sections_volets_name => ByRow(Symbol) => :volet)
-select!(as, :, :sections_teachers => ByRow(Symbol) => :teachers)
-select!(as, :, :sections_capacity => ByRow(identity) => :capacity)
-select!(as, :, :semester => ByRow(Symbol) => :semester)
-select!(as, :, :fetch_date => ByRow(Date) => :fetch_date)
-# select!(as, :, :semester_int => ByRow(Symbol) => :semester_int)
-select!(as, :, :id => ByRow(Symbol) => :id)
-select!(as, :, :jour => ByRow(Symbol) => :jour)
+## Get from URL
 
-col_needed = [
-    :sections_volets_activities_start_time,
-    :sections_volets_activities_end_time,
-    :sections_volets_activities_start_date,
-    :sections_volets_activities_end_date,
-    :sections_volets_activities_days
-]
-select!(as, :, col_needed => ByRow(expand) => :span)
+function Schedules(url::String)
+    println("Loading from API...")
+    rsp = HTTP.get(url)
+    @assert(rsp.status == 200)
+
+    println("Parsing JSON to Julia...")
+    crs = JSON.parse(String(rsp.body))
+
+    println("Building Schedules table...")
+    df = _addtorow!(crs)
+    fixSched!(df)
+    schedules = Schedules(df)
+
+    println("Done.")
+    return schedules
+end
 
 
 
-# df = DataFrame()
-# row_df = DataFrame()
-# [c["sigle"] == "IFT1025" for c in crs] |> findfirst
-# _addtorow!(row_df, crs[530])
-# tmp = JSON.parse("""
-# [{
-#     "id": 23,
-#     "name": "bingo",
-#     "vec": [{"name": 12, "id": [1, 2, 3]}, {"name": 45, "id": [1, 2, 3]}]
-# },
-# {
-#     "id": 24,
-#     "name": "blop",
-#     "vec": [{"name": 12, "id": [1, 2, 3]}]
-# }]
-# """)
-
-# function Schedule(crs::Vector{Any})
-#     df = DataFrame(sigle=Symbol[], name=String[], semester=Symbol[])
-#     row = Any[]
-#     for course in crs
-#         row_c = vcat(row, Symbol(course["sigle"]), course["name"], Symbol(course["semester"]))
-#         for section in course["sections"]
-#             row_cs = vcat(row_c, section["teacher"])
-#         end
-#         push!(df, row_c)
-#     end
-#     df
-# end
-
-# df = Schedule(crs)
-
-########

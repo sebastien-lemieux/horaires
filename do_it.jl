@@ -4,19 +4,21 @@ using JLD2
 
 include("Program.jl");
 include("Repertoire.jl");
+include("Schedules.jl");
 
-# include("Schedules.jl");
 # include("Section.jl");
 # include("Exigences.jl");
 
 ## Load or prepare data
 
 if isfile("data.jld2")
-    p, r = load("data.jld2", "p", "r")
+    p, r, s = load("data.jld2", "p", "r", "s")
 else
     p = get_programs("https://planifium-api.onrender.com/api/v1/programs")
     r = Repertoire("https://planifium-api.onrender.com/api/v1/courses")
-    save("data.jld2", Dict("p" => p, "r" => r))
+    s = Schedules("https://planifium-api.onrender.com/api/v1/schedules")
+
+    save("data.jld2", Dict("p" => p, "r" => r, "p" => p))
 end;
 
 # Play with data here!
