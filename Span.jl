@@ -1,5 +1,3 @@
-module ModuleS
-
 using Dates
 
 const idtoday = [:Lu, :Ma, :Me, :Je, :Ve, :Sa, :De]
@@ -36,15 +34,15 @@ function expand(s_id::Int, time_s::Time, time_e::Time, date_s::Date, date_e::Dat
 end
 
 conflict(span_a::Span, span_b::Span) = (span_a.s <= span_b.e) && (span_a.e >= span_b.s)
-conflict_dt(span_a::Span, span_b::Span) = (span_a.s ≤ span_b.e && span_a.e ≥ span_b.e) ? Span(span_a.s, span_b.e) : Span(span_b.s, span_a.e)
+# conflict_dt(span_a::Span, span_b::Span) = (span_a.s ≤ span_b.e && span_a.e ≥ span_b.e) ? Span(span_a.s, span_b.e) : Span(span_b.s, span_a.e)
 conflict(a::Vector{Span}, b::Vector{Span}) = any([conflict(sa, sb) for sa in a, sb in b])
-conflict_dt(a::Vector{Span}, b::Vector{Span})::Vector{Span} = unique([conflict_dt(sa, sb) for sa in a, sb in b if conflict(sa, sb)])
+# conflict_dt(a::Vector{Span}, b::Vector{Span})::Vector{Span} = unique([conflict_dt(sa, sb) for sa in a, sb in b if conflict(sa, sb)])
 
 extract(span::Span) = Dates.format(span.s, "yyyy-mm-dd"), Dates.format(span.s, "HH:MM"), Dates.format(span.e, "HH:MM"), Dates.dayofweek(span.s)
 
 function Base.show(io::IO, span::Span)
     d, s, e, dw = extract(span)
-    print(io, "$d [$(idtoday[dw]) $s-$e]")
+    print(io, "($(span.s_id)) $d [$(idtoday[dw]) $s-$e]")
 end
 
 function inWeek(span::Span)
@@ -59,6 +57,4 @@ function Base.show(io::IO, v::Vector{Span})
         !(span === last(v)) && print(io, ", ")
     end
     print(io, ")")
-end
-
 end

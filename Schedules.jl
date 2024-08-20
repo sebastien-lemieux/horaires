@@ -1,13 +1,12 @@
-module ModuleS
-
 using DataFrames, HTTP, JSON, JLD2
 
-struct Schedules end
+# struct Schedules end
 
 include("Span.jl")
 include("Mask.jl")
 
-struct Schedules
+abstract type AbstractSchedules end
+struct Schedules <: AbstractSchedules
     df::DataFrame
 end
 
@@ -111,6 +110,4 @@ function Schedules(url::String)
 
     println("Done.")
     return schedules
-end
-
 end

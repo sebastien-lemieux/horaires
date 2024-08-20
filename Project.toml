@@ -1,6 +1,7 @@
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 FreqTables = "da1fdf0e-e0ff-5433-a45f-9bb5ff651cb1"
 GLPK = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"
 Gumbo = "708ec375-b3d6-5a57-a7ce-8257bf98657a"

@@ -25,9 +25,23 @@ end;
 
 prog = p["Baccalauréat en bio-informatique (B. Sc.)"]
 # prog = p[Symbol("146811")]
-courses = getcourses(prog)
+# courses = getcourses(prog)
 
-r[prog] # Returns 
+id = r[prog].id # Returns 
+
+for (i, sym) in enumerate(unique(id))
+    println(i, ", ", sym)
+end
+
+join(unique(id), ", ") |> println
+
+using DataStructures
+tmp = counter([str[1:3] for str in String.(id)])
+
+for (mat, n) in sort(collect(tmp), lt=(a, b) -> a.second > b.second)
+    println(mat, ", ", n)
+end
+
 
 a = s[:semester, :A24]
 b1 = s[:sigle, :IFT1015]
