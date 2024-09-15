@@ -33,25 +33,24 @@ for (i, sym) in enumerate(unique(id))
     println(i, ", ", sym)
 end
 
-join(unique(id), ", ") |> println
-
-using DataStructures
-tmp = counter([str[1:3] for str in String.(id)])
-
-for (mat, n) in sort(collect(tmp), lt=(a, b) -> a.second > b.second)
-    println(mat, ", ", n)
-end
-
-
 a = s[:semester, :A24]
-b1 = s[:sigle, :IFT1015]
-b2 = s[:sigle, :BIN1002]
-c = s[:section, :B] | s[:section, :B101]
+b = s[:sigle, :IFT1015] & s[:msection, :A]
+c = s[:sigle, :BIN1002]
+# c = s[:msection, :A]
+bcm = s[:sigle, :BCM1521] & a
+conflict_expl(vcat(s[bcm & s[:section, :A]].span...), vcat(s[bcm & s[:section, :A1]].span...))
 
-span1 = sort(vcat(s[a & b1 & c].span...))
-span2 = sort(vcat(s[a & b2].span...))
+span1 = sort(vcat(s[a & b].span...))
+span2 = sort(vcat(s[a & c].span...))
 
-conflict(span1, span2)
+if _conflict(span1, span2)
+    xpl = conflict_expl(span1, span2)
+    for x in xpl
+        cfl = s.df[x, [:sigle, :section, :volet, :teachers, :semester, :jour, :time_s, :time_e]]
+        println(cfl)
+        println(Dates.format(maximum(cfl.time_s), "HH:MM"), "-", Dates.format(minimum(cfl.time_e), "HH:MM"))
+    end
+end
 
 deja = [:BCM_1501, :BCM_2550, :BIN_1002, :BIO_1203]
 session, annee = :A, 2024

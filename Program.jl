@@ -53,7 +53,7 @@ function Program(program_json)
     )
 end
 
-struct Programs
+struct Programs ## Turn into a Maskable (df for programs)
     progs::Vector{Program}
     id::Dict{Symbol, Int}
     name::Dict{String, Int}

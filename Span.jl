@@ -11,7 +11,7 @@ end
 
 Span(s_id::Int, time_s::Time, time_e::Time, date_s::Date, date_e::Date) = Span(s_id, DateTime(date_s, time_s), DateTime(date_e, time_e))
 
-Base.isless(a::Span, b::Span) = a.s < b.s ? true : (a.s == b.s ? a.e < b.e : false)
+Base.isless(a::Span, b::Span) = a.s < b.s ? true : (a.s == b.s ? a.e < b.e : false) # arbitrary order
 
 function expand(s_id::Int, time_s::String, time_e::String, date_s::String, date_e::String, dow::Symbol)
     # At the time this is called
@@ -33,11 +33,6 @@ function expand(s_id::Int, time_s::Time, time_e::Time, date_s::Date, date_e::Dat
     return [Span(s_id, time_s, time_e, d, d) for d in date_s:Week(1):date_e]
 end
 
-conflict(span_a::Span, span_b::Span) = (span_a.s <= span_b.e) && (span_a.e >= span_b.s)
-# conflict_dt(span_a::Span, span_b::Span) = (span_a.s ≤ span_b.e && span_a.e ≥ span_b.e) ? Span(span_a.s, span_b.e) : Span(span_b.s, span_a.e)
-conflict(a::Vector{Span}, b::Vector{Span}) = any([conflict(sa, sb) for sa in a, sb in b])
-# conflict_dt(a::Vector{Span}, b::Vector{Span})::Vector{Span} = unique([conflict_dt(sa, sb) for sa in a, sb in b if conflict(sa, sb)])
-
 extract(span::Span) = Dates.format(span.s, "yyyy-mm-dd"), Dates.format(span.s, "HH:MM"), Dates.format(span.e, "HH:MM"), Dates.dayofweek(span.s)
 
 function Base.show(io::IO, span::Span)
@@ -57,4 +52,21 @@ function Base.show(io::IO, v::Vector{Span})
         !(span === last(v)) && print(io, ", ")
     end
     print(io, ")")
+end
+
+# Utilities
+
+_conflict(span_a::Span, span_b::Span) = (span_a.s <= span_b.e) && (span_a.e >= span_b.s)
+_conflict(a::Vector{Span}, b::Vector{Span}) = any([_conflict(sa, sb) for sa in a, sb in b])
+_conflict(v::Vector{Vector{Span}}, new::Vector{Span}) = any([_conflict(last(v), prev) for prev in v[1:end-1]])
+
+
+function conflict_expl(a::Vector{Span}, b::Vector{Span})
+    conflicts = Set{Vector{Int}}()
+
+    for sa in a, sb in b
+        _conflict(sa, sb) && push!(conflicts, [sa.s_id, sb.s_id])
+    end
+
+    return conflicts
 end
