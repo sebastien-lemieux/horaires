@@ -132,11 +132,13 @@ function backtrack(s::Schedules, course_v::Vector{Symbol})
     end
 end
 
-sol = backtrack(s, [:IFT1015])
+# sol = backtrack(s, [:IFT1015])
 
-for s in sol
-    println(s)
-end
+# for s in sol
+#     println(s)
+# end
+
+
 # s_sem.df[[s.s_id for s in vcat(sol...)] |> unique, :]
 
 # function conflict_exp(s::Schedules, a::Mask{Schedules}, b::Mask{Schedules})

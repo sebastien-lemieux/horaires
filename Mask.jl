@@ -50,6 +50,8 @@ DataFrames.DataFrame(mask::Mask{T}) where T <: AbstractMaskable = mask.t.df[mask
 # end
 
 macro maskable(expr)
+    # This macro will make the struct type's a subtype of AbstractMaskable
+    # And will  
 
     if expr.head == :struct
 
@@ -73,27 +75,3 @@ macro maskable(expr)
         error("@maskable must be used with a struct definition")
     end
 end
-
-
-# @maskable struct Schedules_36
-#     df::DataFrame
-# end
-
-
-
-# # a = s[:semester, :A24]
-# # b = s[:sigle, :IFT1015]
-
-# # a | b
-
-# struct_expr = Expr(:struct, false, Expr(:<:, :Schedules_8, :AbstractMaskable), Expr(:block, :(df::DataFrame)))
-# eval(struct_expr)
-# supertypes(Schedules_8)
-
-# constructor_expr = Expr(:function, 
-#     Expr(:call, :Schedules_4, Expr(:(::), :m, Expr(:curly, :Mask, :Schedules_4))),
-#     Expr(:block, Expr(:return, Expr(:call, :Schedules_4, Expr(:call, :DataFrame, :m))))
-# )
-
-# eval(constructor_expr)
-
