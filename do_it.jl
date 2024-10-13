@@ -27,55 +27,41 @@ prog = p["Baccalauréat en bio-informatique (B. Sc.)"]
 # prog = p[Symbol("146811")]
 # courses = getcourses(prog)
 
-id = r[prog].id # Returns 
+# id = r[prog].id # Returns 
 
-for (i, sym) in enumerate(unique(id))
-    println(i, ", ", sym)
-end
+# for (i, sym) in enumerate(unique(id))
+#     println(i, ", ", sym)
+# end
 
-a = s[:semester, :A24]
-b = s[:sigle, :IFT1015] & s[:msection, :A]
-c = s[:sigle, :BIN1002]
-# c = s[:msection, :A]
-bcm = s[:sigle, :BCM1521] & a
-conflict_expl(vcat(s[bcm & s[:section, :A]].span...), vcat(s[bcm & s[:section, :A1]].span...))
-
-span1 = sort(vcat(s[a & b].span...))
-span2 = sort(vcat(s[a & c].span...))
-
-if _conflict(span1, span2)
-    xpl = conflict_expl(span1, span2)
-    for x in xpl
-        cfl = s.df[x, [:sigle, :section, :volet, :teachers, :semester, :jour, :time_s, :time_e]]
-        println(cfl)
-        println(Dates.format(maximum(cfl.time_s), "HH:MM"), "-", Dates.format(minimum(cfl.time_e), "HH:MM"))
-    end
-end
-
-deja = [:BCM_1501, :BCM_2550, :BIN_1002, :BIO_1203]
-session, annee = :A, 2024
-
-function solution(s::Schedule, sigle_v)
-
-end
-
-function _solution(s::Schedule, section_v)
-
-end
+# a = s[:semester, :A24]
+# b = a & s[:sigle, :IFT1015] & s[:msection, :A]
+# c = a & s[:sigle, :BIN1002]
+# # c = s[:msection, :A]
+# bcm = s[:sigle, :BCM1521] & a
 
 
-# ## Create and optimize model (WIP)
+# conflict_expl(vcat(b[:span]...), vcat(c[:span]...))
 
-# # generateTestFunc!(prog)
-# generateEq!(prog)
-# new_done = Set([:IFT_1065, :IFT_1016, :BCM_2550, :BIN_1002, :BCM_1501, :IFT_1215, :IFT_2125, :MAT_1600, :MAT_1978, :IFT_1025])
+# span1 = sort(vcat(b[:span]...))
+# span2 = sort(vcat(c[:span]...))
 
-# prog[:IFT_1025].req(new_done)
-# ## Build optimization model
+# if _conflict(span1, span2)
+#     xpl = conflict_expl(span1, span2)
+#     for x in xpl
+#         cfl = s.df[x, [:sigle, :section, :volet, :teachers, :semester, :jour, :time_s, :time_e]]
+#         println(cfl)
+#         println(Dates.format(maximum(cfl.time_s), "HH:MM"), "-", Dates.format(minimum(cfl.time_e), "HH:MM"))
+#     end
+# end
 
-# course_list = prog.courses.sigle ∩ schedules.df.sigle
+####### 
 
-# model = Model(Gurobi.Optimizer)
+using JuMP, Gurobi
+model = Model(Gurobi.Optimizer)
+
+
+
+generateLHS!(prog, course_j, var)
 
 # section_v = Section[]
 # course_j = Dict{Symbol, Int}()
@@ -125,6 +111,8 @@ end
 # section_v[value.(sec_var) .== 1.0] ## Show results
 
 
+include("Exigences.jl")
+str = DataFrame(r[:id, :IFT1025]).requirement_text[1]
 
-
-
+course_j = Dict(:IFT1015 => 1, :IFT1016 => 2)
+generateLHS(str, course_j, :blip)

@@ -1,5 +1,8 @@
 
 function generateLHS(str, course_j, var)
+    l = strip.(split(str, ":"))
+    l[1] ≠ "prerequisite_courses" && nothing
+    str = l[2]
     if match(r"COLLÈGE", str) !== nothing # Don't consider CEGEP courses
         # println("COLLEGE warning: $str")
         return Expr(:call, :identity, 1)
@@ -13,11 +16,11 @@ function generateLHS(str, course_j, var)
     end
 
     str2 = replace(str,
-        r"(?<mat>[A-Z]{3})(?<num>[0-9]{4}[A-Z]?)" => s":\g<mat>_\g<num>",
-        "ET" => "*",
-        "OU" => "+",
-        "COMPÉTENCE ÉQUIVALENTE." => "",
-        "12 CRÉDITS" => "",
+        r"(?<mat>[A-Z]{3})(?<num>[0-9]{4}[A-Z]?)" => s":\g<mat>\g<num>",
+        r"ET"i => "*",
+        r"OU"i => "+",
+        r"COMPÉTENCE ÉQUIVALENTE."i => "",
+        r"12 CRÉDITS"i => "",
         "," => "")
     eq1 = Meta.parse(str2)
 
@@ -26,8 +29,9 @@ function generateLHS(str, course_j, var)
             new_args = [_transf(a, course_j, var) for a in expr.args[2:end]]
             return Expr(expr.head, expr.args[1], new_args...)
         elseif isa(expr, QuoteNode)
-            i = get(course_j, expr.value, 0)
-            i == 0 && return Expr(:call, :identity, 0)
+            println(typeof(expr.value))
+            i = course_j[expr.value] # get(course_j, expr.value, 0)
+            # i == 0 && return Expr(:call, :identity, 0)
             return :(($var)[$i])
         end
     end
