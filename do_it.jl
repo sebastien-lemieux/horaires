@@ -23,12 +23,21 @@ include("Exigences.jl");
 
 prog = p["Baccalauréat en bio-informatique (B. Sc.)"]
 semester = :A24
-done = Symbol[]
+# done = Symbol[]
+done = [:BIO2043, :IFT1025, :BIN1002, :BCM1503, :BCM1502, :BCM2550, :BIO1153, :BIO1803, :IFT1005, :IFT1015, :IFT2255, :BCM1501]
 
 # create sections variable
 id = r[prog].id 
 
-avail = s[row -> (row.sigle ∈ id && row.sigle ∉ done && row.semester == semester && length(row.span) ≥ 1)] |> DataFrame
+function can_do(row)
+    row.sigle ∈ id || return false
+    row.sigle ∉ done || return false
+    row.semester == semester || return false
+    length(row.span) ≥ 1 || return false
+    return true
+end
+
+avail = DataFrame(s[can_do])
 avail_sections = combine(groupby(avail, [:sigle, :msection])) do df
     (; span = [reduce(vcat, df.span)])
 end
@@ -36,10 +45,15 @@ end
 avail_sections.credits = r[avail_sections.sigle].credits
 avail_sections.req = r[avail_sections.sigle].requirement_text
 avail_sections[!,:pref] .= 1.0
+avail_sections = avail_sections[check_req.(avail_sections.req, Ref(done)),:]
 
 ## prefs
 obl = vcat([b.courses for b in prog.segments[1].blocs]...)
 transform!(avail_sections, [:sigle, :pref] => ByRow((s,p) -> (s ∈ obl) ? 5.0 : p) => :pref)
+opt = vcat([b.courses for b in prog.segments[2].blocs]...)
+transform!(avail_sections, [:sigle, :pref] => ByRow((s,p) -> (s ∈ opt) ? 3.0 : p) => :pref)
+b02Y = vcat([bloc.courses for bloc in filter(x -> x.id == Symbol("Bloc 02Y"), prog.segments[2].blocs)]...)
+transform!(avail_sections, [:sigle, :pref] => ByRow((s,p) -> (s ∈ b02Y) ? 1.0 : p) => :pref)
 
 ## build model
 model = Model(Gurobi.Optimizer)
@@ -47,10 +61,11 @@ avail_sections.var = @variable(model, sec_var[i=1:nrow(avail_sections)] ≥ 0, B
 
 # unique section per course
 gdf = groupby(avail_sections, :sigle)
-sec_cst = Dict{Symbol, Any}()
-for sdf in gdf
+for k in keys(gdf)
+    sdf = gdf[k]
+    the_max = (k.sigle ∈ done) ? 0 : 1
     nrow(sdf) < 2 && continue
-    @constraint(model, sum(sdf.var) ≤ 1)
+    @constraint(model, sum(sdf.var) ≤ the_max)
 end
 
 # schedule conflicts
@@ -65,25 +80,13 @@ end
 # max credits
 @constraint(model, sum(avail_sections[:,:var] .* avail_sections[:,:credits]) ≤ 16)
 
-
-
-
-
-@objective(model, Max, sum(sec_var .* avail_sections[:,:pref]))
+@objective(model, Max, sum(sec_var .* avail_sections[:,:pref] .* avail_sections[:,:credits]))
 
 set_optimizer_attribute(model, "PoolSearchMode", 2)  # Search for multiple solutions
 set_optimizer_attribute(model, "PoolSolutions", 10)  # Limit to 10 solutions
 optimize!(model)
 # courses(model, prog)
 
-avail_sections[value.(sec_var; result=1) .== 1.0,:]
-
-# generateLHS!(prog, course_j, var)
-
-
-
-# include("Exigences.jl")
-# str = DataFrame(r[:id, :IFT1025]).requirement_text[1]
-
-# course_j = Dict(:IFT1015 => 1, :IFT1016 => 2)
-# generateLHS(str, course_j, :blip)rebuild
+for i in 1:result_count(model)
+    println(avail_sections[value.(sec_var; result=i) .== 1.0,:])
+end
