@@ -35,9 +35,15 @@ end
 
 avail_sections.credits = r[avail_sections.sigle].credits
 avail_sections.req = r[avail_sections.sigle].requirement_text
+avail_sections[!,:pref] .= 1.0
 
+## prefs
+obl = vcat([b.courses for b in prog.segments[1].blocs]...)
+transform!(avail_sections, [:sigle, :pref] => ByRow((s,p) -> (s ∈ obl) ? 5.0 : p) => :pref)
+
+## build model
 model = Model(Gurobi.Optimizer)
-avail_sections.var = @variable(model, sec_var[i=1:nrow(avail_sections)], Bin)
+avail_sections.var = @variable(model, sec_var[i=1:nrow(avail_sections)] ≥ 0, Bin)
 
 # unique section per course
 gdf = groupby(avail_sections, :sigle)
@@ -47,13 +53,30 @@ for sdf in gdf
     @constraint(model, sum(sdf.var) ≤ 1)
 end
 
+# schedule conflicts
+for i in 1:nrow(avail_sections)
+    for j in (i+1):nrow(avail_sections)
+        if _conflict(avail_sections[i, :span], avail_sections[j, :span])
+            @constraint(model, avail_sections[i, :var] + avail_sections[j, :var] ≤ 1)
+        end
+    end
+end
+
+# max credits
+@constraint(model, sum(avail_sections[:,:var] .* avail_sections[:,:credits]) ≤ 16)
 
 
 
-@objective(model, Max, sum(sec_var))
+
+
+@objective(model, Max, sum(sec_var .* avail_sections[:,:pref]))
+
+set_optimizer_attribute(model, "PoolSearchMode", 2)  # Search for multiple solutions
+set_optimizer_attribute(model, "PoolSolutions", 10)  # Limit to 10 solutions
 optimize!(model)
 # courses(model, prog)
 
+avail_sections[value.(sec_var; result=1) .== 1.0,:]
 
 # generateLHS!(prog, course_j, var)
 
@@ -63,4 +86,4 @@ optimize!(model)
 # str = DataFrame(r[:id, :IFT1025]).requirement_text[1]
 
 # course_j = Dict(:IFT1015 => 1, :IFT1016 => 2)
-# generateLHS(str, course_j, :blip)
+# generateLHS(str, course_j, :blip)rebuild
