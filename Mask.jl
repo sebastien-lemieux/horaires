@@ -13,10 +13,37 @@ Base.:!(a::Mask{T}) where T <: AbstractMaskable = Mask{T}(a.t, .!a.m)
 Base.getindex(s::M, col::Symbol, val::T) where {T <: Union{String, Symbol}, M <: AbstractMaskable} =
     Mask{M}(s, s.df[!, col] .== val)
 
+Base.getindex(s::M, f::Function) where {M <: AbstractMaskable} =
+    Mask{M}(s, f.(eachrow(s.df)))
+
 Base.getindex(m::Mask{T}, col::Symbol) where T <: AbstractMaskable = m.t.df[m.m, col]
 
 DataFrames.DataFrame(mask::Mask{T}) where T <: AbstractMaskable = mask.t.df[mask.m,:]
 
+macro maskable(expr)
+    # This macro will make the struct type's a subtype of AbstractMaskable
+
+    if expr.head == :struct
+
+        mutable_flag = expr.args[1]
+        struct_name = expr.args[2]
+        struct_body = expr.args[3]
+
+        modified_struct = Expr(:struct, mutable_flag, Expr(:(<:), struct_name, :AbstractMaskable), Expr(:block, struct_body.args[2:end]...))
+        eval(modified_struct)
+
+        constructor_def = Expr(:function, 
+            Expr(:call, struct_name, Expr(:(::), :m, Expr(:curly, :Mask, struct_name))),
+            Expr(:block, Expr(:call, struct_name, Expr(:call, :DataFrame, :m)))
+        )
+        eval(constructor_def)
+
+    else
+        error("@maskable must be used with a struct definition")
+    end
+end
+
+## Old version, rebuild constructor... why?
 # macro maskable(expr)
 #     # Check if the expression is a struct definition
 #     if expr.head == :struct
@@ -49,29 +76,3 @@ DataFrames.DataFrame(mask::Mask{T}) where T <: AbstractMaskable = mask.t.df[mask
 #     end
 # end
 
-macro maskable(expr)
-    # This macro will make the struct type's a subtype of AbstractMaskable
-    # And will  
-
-    if expr.head == :struct
-
-        mutable_flag = expr.args[1]
-        struct_name = expr.args[2]
-        struct_body = expr.args[3]
-        # struct_fields = Expr(:tuple, struct_body.args[2].args...)
-        # println(struct_body.args[2:end])
-
-        modified_struct = Expr(:struct, mutable_flag, Expr(:(<:), struct_name, :AbstractMaskable), Expr(:block, struct_body.args[2:end]...))
-        # println(modified_struct)
-        eval(modified_struct)
-
-        constructor_def = Expr(:function, 
-            Expr(:call, struct_name, Expr(:(::), :m, Expr(:curly, :Mask, struct_name))),
-            Expr(:block, Expr(:call, struct_name, Expr(:call, :DataFrame, :m)))
-        )
-        eval(constructor_def)
-
-    else
-        error("@maskable must be used with a struct definition")
-    end
-end

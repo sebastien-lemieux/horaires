@@ -1,13 +1,8 @@
-# using JuMP
-# using Gurobi # Much faster than GLPK
 using JLD2
 
 include("Program.jl");
 include("Repertoire.jl");
 include("Schedules.jl");
-
-# include("Section.jl");
-# include("Exigences.jl");
 
 ## Load or prepare data
 
@@ -17,102 +12,55 @@ else
     p = Programs("https://planifium-api.onrender.com/api/v1/programs")
     r = Repertoire("https://planifium-api.onrender.com/api/v1/courses")
     s = Schedules("https://planifium-api.onrender.com/api/v1/schedules")
-
+    
     save("data.jld2", Dict("p" => p, "r" => r, "s" => s))
 end;
 
-# Play with data here!
-
-prog = p["Baccalauréat en bio-informatique (B. Sc.)"]
-# prog = p[Symbol("146811")]
-# courses = getcourses(prog)
-
-# id = r[prog].id # Returns 
-
-# for (i, sym) in enumerate(unique(id))
-#     println(i, ", ", sym)
-# end
-
-# a = s[:semester, :A24]
-# b = a & s[:sigle, :IFT1015] & s[:msection, :A]
-# c = a & s[:sigle, :BIN1002]
-# # c = s[:msection, :A]
-# bcm = s[:sigle, :BCM1521] & a
-
-
-# conflict_expl(vcat(b[:span]...), vcat(c[:span]...))
-
-# span1 = sort(vcat(b[:span]...))
-# span2 = sort(vcat(c[:span]...))
-
-# if _conflict(span1, span2)
-#     xpl = conflict_expl(span1, span2)
-#     for x in xpl
-#         cfl = s.df[x, [:sigle, :section, :volet, :teachers, :semester, :jour, :time_s, :time_e]]
-#         println(cfl)
-#         println(Dates.format(maximum(cfl.time_s), "HH:MM"), "-", Dates.format(minimum(cfl.time_e), "HH:MM"))
-#     end
-# end
-
-####### 
+## Optimize
 
 using JuMP, Gurobi
+include("Exigences.jl");
+
+prog = p["Baccalauréat en bio-informatique (B. Sc.)"]
+semester = :A24
+done = Symbol[]
+
+# create sections variable
+id = r[prog].id 
+
+avail = s[row -> (row.sigle ∈ id && row.sigle ∉ done && row.semester == semester && length(row.span) ≥ 1)] |> DataFrame
+avail_sections = combine(groupby(avail, [:sigle, :msection])) do df
+    (; span = [reduce(vcat, df.span)])
+end
+
+avail_sections.credits = r[avail_sections.sigle].credits
+avail_sections.req = r[avail_sections.sigle].requirement_text
+
 model = Model(Gurobi.Optimizer)
+avail_sections.var = @variable(model, sec_var[i=1:nrow(avail_sections)], Bin)
+
+# unique section per course
+gdf = groupby(avail_sections, :sigle)
+sec_cst = Dict{Symbol, Any}()
+for sdf in gdf
+    nrow(sdf) < 2 && continue
+    @constraint(model, sum(sdf.var) ≤ 1)
+end
 
 
 
-generateLHS!(prog, course_j, var)
 
-# section_v = Section[]
-# course_j = Dict{Symbol, Int}()
-# for (j, sym) in enumerate(course_list)
-#     course_j[sym] = j
-#     sections = prepSections(schedules, prog, sym)
-#     for sec in sections
-#         push!(section_v, sec)
-#     end
-# end
-
-# done = Symbol[:IFT_1065, :IFT_1016, :BCM_2550, :BIN_1002, :BCM_1501]
-
-# @variable(model, sec_var[i=1:length(section_v)])
-# @variable(model, done_var[i=1:length(course_list)])
-
-# ## Can't take a course already taken
-# for (i, sec) in enumerate(section_v)
-#     j = course_j(sec.sigle)
-#     @constraint(model, sec_var[i] + done_var[j] ≤ 2)
-# end
-
-# ## Req must be Met
-# str = "IFT2015 ET (MAT1978 OU MAT1720 OU BIG9999)"
-# generateLHS(str, course_j, :done_var)
-# for sec in section_v
-#     lhs = eval(generateLHS(str, course_j, :done_var))
-#     @constraint(model, lhs ≥ 1)
-# end
-
-# ## No section in conflict
-# for i=1:length(section_v), j=(i+1):length(section_v)
-#     if conflict(section_v[i].spans, section_v[j].spans)
-#         println("Conflict: $(section_v[i]) with $(section_v[j])")
-#         @constraint(model, sec_var[i] + sec_var[j] ≤ 1)
-#     end
-# end
-
-# ## No more than 15 credits per session
-# @constraint(model, sum(sec_var[i] * section_v[i].credit for i in eachindex(section_v)) ≤ 15)
-
-# ## Maximize the number of credit
-# @objective(model, Max, sum(sec_var[i] * section_v[i].credit for i=eachindex(section_v)))
-
-# optimize!(model)
-
-# section_v[value.(sec_var) .== 1.0] ## Show results
+@objective(model, Max, sum(sec_var))
+optimize!(model)
+# courses(model, prog)
 
 
-include("Exigences.jl")
-str = DataFrame(r[:id, :IFT1025]).requirement_text[1]
+# generateLHS!(prog, course_j, var)
 
-course_j = Dict(:IFT1015 => 1, :IFT1016 => 2)
-generateLHS(str, course_j, :blip)
+
+
+# include("Exigences.jl")
+# str = DataFrame(r[:id, :IFT1025]).requirement_text[1]
+
+# course_j = Dict(:IFT1015 => 1, :IFT1016 => 2)
+# generateLHS(str, course_j, :blip)
