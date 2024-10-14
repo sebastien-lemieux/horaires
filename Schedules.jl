@@ -2,9 +2,6 @@ using DataFrames, HTTP, JSON, JLD2
 
 # struct Schedules end
 
-include("Span.jl")
-include("Mask.jl")
-
 @maskable struct Schedules
     df::DataFrame
 end

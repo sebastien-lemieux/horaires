@@ -1,6 +1,5 @@
 using JSON, HTTP, DataFrames
 
-include("Mask.jl")
 ## Act as an index over all courses details (no schedules since not session-specific)
 ## No schedule here since it is not associated to a semester yet
 

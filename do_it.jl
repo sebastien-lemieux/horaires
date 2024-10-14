@@ -1,8 +1,12 @@
 using JLD2
 
+include("Mask.jl")
+
 include("Program.jl");
 include("Repertoire.jl");
+include("Span.jl")
 include("Schedules.jl");
+include("Exigences.jl");
 
 ## Load or prepare data
 
@@ -19,14 +23,13 @@ end;
 ## Optimize
 
 using JuMP, Gurobi
-include("Exigences.jl");
 
 prog = p["Baccalauréat en bio-informatique (B. Sc.)"]
 semester = :A24
-# done = Symbol[]
-done = [:BIO2043, :IFT1025, :BIN1002, :BCM1503, :BCM1502, :BCM2550, :BIO1153, :BIO1803, :IFT1005, :IFT1015, :IFT2255, :BCM1501]
+done = Symbol[]
+# done = [:BIO2043, :IFT1025, :BIN1002, :BCM1503, :BCM1502, :BCM2550, :BIO1153, :BIO1803, :IFT1005, :IFT1015, :IFT2255, :BCM1501]
 
-# create sections variable
+## Prepare list of available sections
 id = r[prog].id 
 
 function can_do(row)
@@ -47,7 +50,7 @@ avail_sections.req = r[avail_sections.sigle].requirement_text
 avail_sections[!,:pref] .= 1.0
 avail_sections = avail_sections[check_req.(avail_sections.req, Ref(done)),:]
 
-## prefs
+## prefs (should come from file)
 obl = vcat([b.courses for b in prog.segments[1].blocs]...)
 transform!(avail_sections, [:sigle, :pref] => ByRow((s,p) -> (s ∈ obl) ? 5.0 : p) => :pref)
 opt = vcat([b.courses for b in prog.segments[2].blocs]...)
