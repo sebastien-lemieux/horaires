@@ -1,10 +1,10 @@
 using JLD2
 
-include("Mask.jl")
+include("Mask.jl");
 
 include("Program.jl");
 include("Repertoire.jl");
-include("Span.jl")
+include("Span.jl");
 include("Schedules.jl");
 include("Exigences.jl");
 
@@ -22,74 +22,82 @@ end;
 
 ## Optimize
 
-using JuMP, Gurobi
-
 prog = p["Baccalauréat en bio-informatique (B. Sc.)"]
-semester = :A24
-done = Symbol[]
-# done = [:BIO2043, :IFT1025, :BIN1002, :BCM1503, :BCM1502, :BCM2550, :BIO1153, :BIO1803, :IFT1005, :IFT1015, :IFT2255, :BCM1501]
+semester_schedules = [:A24, :H25, :E24, :A24, :H25, :E24, :A24, :H25, :E24]
+# before = Symbol[]
+before = [:BIO2043, :IFT1025, :BIN1002, :BCM1503, :BCM1502, :BCM2550, :BIO1153, :BIO1803, :IFT1005, :IFT1015, :IFT2255, :BCM1501]
 
-## Prepare list of available sections
+## Prepare decisiontions
 id = r[prog].id 
+nb_s = length(semester_schedules)
 
-function can_do(row)
+function _can(row)
     row.sigle ∈ id || return false
-    row.sigle ∉ done || return false
-    row.semester == semester || return false
-    length(row.span) ≥ 1 || return false
+    # row.sigle ∉ before || return false
+    # length(row.span) ≥ 1 || return false
     return true
 end
 
-avail = DataFrame(s[can_do])
-avail_sections = combine(groupby(avail, [:sigle, :msection])) do df
+avail = DataFrame(s[_can])
+decision = combine(groupby(avail, [:sigle, :msection, :semester])) do df
     (; span = [reduce(vcat, df.span)])
 end
 
-avail_sections.credits = r[avail_sections.sigle].credits
-avail_sections.req = r[avail_sections.sigle].requirement_text
-avail_sections[!,:pref] .= 1.0
-avail_sections = avail_sections[check_req.(avail_sections.req, Ref(done)),:]
+decision.credits = r[decision.sigle].credits
+decision.req = r[decision.sigle].requirement_text
+decision[!,:pref] .= 1.0
+nb_d = nrow(decision)
+# Move check_req as constraint # decision = decision[check_req.(decision.req, Ref(done)),:]
 
-## prefs (should come from file)
-obl = vcat([b.courses for b in prog.segments[1].blocs]...)
-transform!(avail_sections, [:sigle, :pref] => ByRow((s,p) -> (s ∈ obl) ? 5.0 : p) => :pref)
-opt = vcat([b.courses for b in prog.segments[2].blocs]...)
-transform!(avail_sections, [:sigle, :pref] => ByRow((s,p) -> (s ∈ opt) ? 3.0 : p) => :pref)
-b02Y = vcat([bloc.courses for bloc in filter(x -> x.id == Symbol("Bloc 02Y"), prog.segments[2].blocs)]...)
-transform!(avail_sections, [:sigle, :pref] => ByRow((s,p) -> (s ∈ b02Y) ? 1.0 : p) => :pref)
+courses = unique(decision.sigle)
+nb_c = length(courses)
+c2d = [decision[j, :sigle] == courses[i] for i=1:nb_c, j=1:nb_d]
+before_v = [(courses[i] ∈ before) ? 1 : 0 for i in 1:nb_c, _=1:1]
 
-## build model
+using JuMP, Gurobi
+## build_model
 model = Model(Gurobi.Optimizer)
-avail_sections.var = @variable(model, sec_var[i=1:nrow(avail_sections)] ≥ 0, Bin)
+@variable(model, decision_var[i=1:nb_d, j=1:nb_s] ≥ 0, Bin)
+
+@expression(model, done, sum(c2d * decision_var, dims=2) + before_v)
+@constraint(model, done[i] ≤ 1 for i=1:nb_c) # do the course only once, no matter the section done or before
+
+
+# ## introduire @expression pour modeliser ce qui est fait avant chaque session
+# @expression(model, before[1:nrow(decision), 1:length(semester_schedules)], before[i, j-1] + decision[i, j-1] for i=1:nrow(decision), j=1:length(semester_schedules))
 
 # unique section per course
-gdf = groupby(avail_sections, :sigle)
+gdf = groupby(decision, :sigle)
 for k in keys(gdf)
     sdf = gdf[k]
-    the_max = (k.sigle ∈ done) ? 0 : 1
+    the_max = (k.sigle ∈ before) ? 0 : 1
     nrow(sdf) < 2 && continue
     @constraint(model, sum(sdf.var) ≤ the_max)
 end
 
 # schedule conflicts
-for i in 1:nrow(avail_sections)
-    for j in (i+1):nrow(avail_sections)
-        if _conflict(avail_sections[i, :span], avail_sections[j, :span])
-            @constraint(model, avail_sections[i, :var] + avail_sections[j, :var] ≤ 1)
+for i in 1:nrow(decision)
+    for j in (i+1):nrow(decision)
+        if _conflict(decision[i, :span], decision[j, :span])
+            @constraint(model, decision[i, :var] + decision[j, :var] ≤ 1)
         end
     end
 end
 
 # max credits
-@constraint(model, sum(avail_sections[:,:var] .* avail_sections[:,:credits]) ≤ 16)
+@constraint(model, sum(decision[:,:var] .* decision[:,:credits]) ≤ 16)
 
-@objective(model, Max, sum(sec_var .* avail_sections[:,:pref] .* avail_sections[:,:credits]))
+@objective(model, Max, sum(decision_var .* decision[:,:pref] .* decision[:,:credits]))
 
 set_optimizer_attribute(model, "PoolSearchMode", 2)  # Search for multiple solutions
 set_optimizer_attribute(model, "PoolSolutions", 10)  # Limit to 10 solutions
 optimize!(model)
-# courses(model, prog)
 
-for i in 1:result_count(model)
-    println(avail_sections[value.(sec_var; result=i) .== 1.0,:])
-end
+
+# *******
+model = Model(Gurobi.Optimizer)
+@variable(model, decision[1:10, 1:15] ≥ 0, Bin)
+#@expression(model, before[i=1:10, 1:15], 0)  # You can replace 0 with your constant input for each course
+
+# Step 2: Define the remaining part of the 'before' matrix (j > 1)
+@expression(model, before[i=0:10, j=1:15], (j == 1) ? 0 : (before[i, j-1] + decision[i, j-1]) for i=0:10, j=1:15)

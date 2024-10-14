@@ -1,3 +1,5 @@
+using DataFrames
+
 abstract type AbstractMaskable end
 
 struct Mask{M <: AbstractMaskable}

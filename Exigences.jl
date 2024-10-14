@@ -5,7 +5,7 @@ function check_req(str, done)
         l = strip.(split(str, ":"))
         l[1] ≠ "prerequisite_courses" && return true
         str = l[2]
-        println("str  ", str)
+        # println("str  ", str)
         if match(r"COLLÈGE"i, str) !== nothing # Don't consider CEGEP courses
             # println("COLLEGE warning: $str")
             return true
@@ -25,11 +25,11 @@ function check_req(str, done)
             r"COMPÉTENCE ÉQUIVALENTE."i => "true",
             r"[0-9]+ CRÉDITS DE SIGLE [A-Z]{3}"i => "true",
             "," => "&&")
-        println("pre  ", str)
-        println("post ", str2)
+        # println("pre  ", str)
+        # println("post ", str2)
         eq = Meta.parse(str2)
 
-        println("eq   ", eq)
+        # println("eq   ", eq)
         return eval(eq)
     end
 end

@@ -8,9 +8,11 @@
 
 ### To do:
 - Intégration du préalable basé sur le nombre de crédit IFT.
+- Prendre compte des équivalences définies par l'UdeM
 - Permettre de donner une préférence sur les cours qui restent à faire. Un CSV pourrait être généré avec toutes préférences à 1, l'utilisateur viendrait ensuite éditer.
 - Si j'ai cours XYZ, quels cours je peux prendre au programme (et le bloc).
 - Planification multi trimestres.
+- 
 
 ### Points d'entrées au code:
 - **do_it.jl:** Parse le programme + tous les horaires de cours puis "optimise" un horaire de 15 crédits sans conflits.
