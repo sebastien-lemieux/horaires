@@ -84,12 +84,17 @@ Base.getindex(p::Programs, name::String) = p.progs[p.name[name]]
 Base.getindex(p::Programs, r::Regex) = [p.progs[i] for (name, i) in p.name if !isnothing(match(r, name))]
 
 function getcourses(p::Program)
-    c = Symbol[]
+    df = DataFrame(prog=Symbol[], segment=Symbol[], bloc=Symbol[], sigle=Symbol[])
+    p_sym = p.id
     for segment in p.segments
+        s_sym = segment.id
         for bloc in segment.blocs
-            c = vcat(c, bloc.courses)
+            b_sym = bloc.id
+            for course in bloc.courses
+                push!(df, [p_sym, s_sym, b_sym, course])
+            end
         end
     end
-    return c
+    return df
 end
 

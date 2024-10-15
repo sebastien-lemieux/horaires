@@ -15,6 +15,9 @@ Base.:!(a::Mask{T}) where T <: AbstractMaskable = Mask{T}(a.t, .!a.m)
 Base.getindex(s::M, col::Symbol, val::T) where {T <: Union{String, Symbol}, M <: AbstractMaskable} =
     Mask{M}(s, s.df[!, col] .== val)
 
+# Base.getindex(s::M, col::Symbol, vec::Vector{T}) where {T <: Union{String, Symbol}, M <: AbstractMaskable} =
+#     Mask{M}(s, s.df[!, col] .∈ vec)
+
 Base.getindex(s::M, f::Function) where {M <: AbstractMaskable} =
     Mask{M}(s, f.(eachrow(s.df)))
 
