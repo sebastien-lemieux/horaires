@@ -55,14 +55,14 @@ using JuMP, Gurobi
 model = Model(Gurobi.Optimizer)
 @variable(model, decision_var[i=1:nb_d, j=1:nb_s] ≥ 0, Bin)
 
-@expression(model, done, sum(c2d * decision_var, dims=2) + courses.before)
-@constraint(model, [i=1:nb_c], done[i] ≤ 1)
+@expression(model, doing, c2d * decision_var) # pool sections into courses
+@constraint(model, [i=1:nb_c], sum(doing[i,:]) + courses[i,:before] ≤ 1) # Courses need to be done once at most
 
 # schedule conflicts
 for k in nb_s
     for i in 1:nb_d
         if decision[i, :semester] ≠ semester_schedules[k]
-            fix(decision_var[i, k], 0; force=true)
+            fix(decision_var[i, k], 0; force=true) # restrict section choices to semester where they are given
             continue
         end
         for j in (i+1):nb_d
@@ -74,10 +74,14 @@ for k in nb_s
     end
 end
 
-# max credits
+# max credits and prog. objective
 @constraint(model, [k=1:nb_s], sum(decision_var[:,k] .* decision[:,:credits]) ≤ 15)
-
 @constraint(model, sum(done .* courses[:,:credits]) ≥ 90)
+
+# prereq
+d = Dict([courses[i, :sigle] => i for i=1:nb_c])
+@expression(model, done_before[i=1:nb_c, k=1:nb_s], courses.before[i] + (k==1 ? 0 : maximum(doing[i, 1:(k-1)]))) # pool sections into courses
+@constraint(model, [i=1:nb_c, k=1:nb_s], doing[i,k] ≤ transform_req(to_eq, i, "doing", "done_before"))
 
 pref = reshape(courses.pref, :, 1)
 @objective(model, Max, sum(done .* courses[:,:pref]))

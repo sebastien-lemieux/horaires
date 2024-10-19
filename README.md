@@ -9,7 +9,8 @@
 ### To do:
 - Convertir les req en contraintes
 - Intégration du préalable basé sur le nombre de crédit IFT.
-- Prendre compte des équivalences définies par l'UdeM
+- Prendre compte des équivalences définies par l'UdeM.
+- Prendre compte des possibilités de concomittance.
 - Si j'ai cours XYZ, quels cours je peux prendre au programme (et le bloc).
 
 ### Points d'entrées au code:

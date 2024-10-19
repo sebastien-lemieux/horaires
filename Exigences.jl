@@ -1,4 +1,56 @@
 
+to_expr(str) = replace(str,
+r"(?<mat>[A-Z]{3})(?<num>[0-9]{4}[A-Z]?)" => s"(:\g<mat>\g<num> ∈ done)",
+r"ET"i => "&&",
+r"OU"i => "||",
+r"COMPÉTENCE ÉQUIVALENTE."i => "true",
+r"[0-9]+ CRÉDITS DE SIGLE [A-Z]{3}"i => "true",
+"," => "&&")
+
+to_eq(str) = replace(str,
+r"(?<mat>[A-Z]{3})(?<num>[0-9]{4}[A-Z]?)" => s"done_before[i,k]***(:\g<mat>\g<num> ∈ done)",
+r"ET"i => "&&",
+r"OU"i => "||",
+r"COMPÉTENCE ÉQUIVALENTE."i => "true",
+r"[0-9]+ CRÉDITS DE SIGLE [A-Z]{3}"i => "true",
+"," => "&&")
+
+
+function transform_eq(f, str)
+    l = strip.(split(str, "\n"))
+    for str in l
+        l = strip.(split(str, ":"))
+        l[1] ≠ "prerequisite_courses" && continue
+        str = l[2]
+        # println("str  ", str)
+        if match(r"COLLÈGE"i, str) !== nothing # Don't consider CEGEP courses
+            # println("COLLEGE warning: $str")
+            return "1"
+        end
+
+        m = match(r"(?<cr>[0-9]+) CRÉDITS", str) ## ignore
+        if m !== nothing
+            # println(m["cr"])
+            cr = parse(Int, m["cr"])
+            return true
+        end
+
+        str2 = replace(str,
+            r"(?<mat>[A-Z]{3})(?<num>[0-9]{4}[A-Z]?)" => s"(:\g<mat>\g<num> ∈ done)",
+            r"ET"i => "&&",
+            r"OU"i => "||",
+            r"COMPÉTENCE ÉQUIVALENTE."i => "true",
+            r"[0-9]+ CRÉDITS DE SIGLE [A-Z]{3}"i => "true",
+            "," => "&&")
+        # println("pre  ", str)
+        # println("post ", str2)
+        eq = Meta.parse(str2)
+
+        # println("eq   ", eq)
+        return eval(eq)
+    end
+end
+
 function check_req(str, done)
     l = strip.(split(str, "\n"))
     for str in l
@@ -33,6 +85,7 @@ function check_req(str, done)
         return eval(eq)
     end
 end
+
 
 
 # function generateLHS(str, course_j, var)
