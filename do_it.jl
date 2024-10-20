@@ -27,6 +27,7 @@ prog = p["Baccalauréat en bio-informatique (B. Sc.)"]
 
 courses = getcourses(prog)
 courses.credits .= r[courses.sigle].credits
+courses.req .= r[courses.sigle].requirement_text
 courses.before .= 0
 courses.pref .= 1.0
 
@@ -42,7 +43,7 @@ end
 filter!(row -> !isempty(row.span), decision)
 
 decision.credits = r[decision.sigle].credits
-decision.req = r[decision.sigle].requirement_text
+# decision.req = r[decision.sigle].requirement_text
 nb_d = nrow(decision)
 # Move check_req as constraint # decision = decision[check_req.(decision.req, Ref(done)),:]
 
@@ -68,23 +69,47 @@ for k in nb_s
         for j in (i+1):nb_d
             decision[j, :semester] ≠ semester_schedules[k] && continue
             if _conflict(decision[i, :span], decision[j, :span])
-                @constraint(model, decision_var[i, k] + decision_var[j, k] ≤ 1)
+                # @constraint(model, decision_var[i, k] + decision_var[j, k] ≤ 1)
             end
         end
     end
 end
 
 # max credits and prog. objective
+@expression(model, done, sum(doing, dims=2))
 @constraint(model, [k=1:nb_s], sum(decision_var[:,k] .* decision[:,:credits]) ≤ 15)
 @constraint(model, sum(done .* courses[:,:credits]) ≥ 90)
 
+# blocs
+
+
+
 # prereq
-d = Dict([courses[i, :sigle] => i for i=1:nb_c])
-@expression(model, done_before[i=1:nb_c, k=1:nb_s], courses.before[i] + (k==1 ? 0 : maximum(doing[i, 1:(k-1)]))) # pool sections into courses
-@constraint(model, [i=1:nb_c, k=1:nb_s], doing[i,k] ≤ transform_req(to_eq, i, "doing", "done_before"))
+
+@variable(model, done_before[1:nb_c, 1:nb_s], Bin)
+for i in 1:nb_c, k in 1:nb_s  # Start k from 2 because for k=1, done_before[i, 1] = 0
+    if k == 1
+        @constraint(model, done_before[i, k] >= courses.before[i])
+    else
+        for j in 1:(k-1)
+            @constraint(model, done_before[i, k] ≥ done_before[i, j])
+        end
+        @constraint(model, done_before[i, k] ≤ sum(done_before[i, 1:(k-1)]))
+    end
+end
+
+req = Reqs(model, courses);
+for c = 1:nb_c
+    expr = to_expr(req, c)
+    isnothing(expr) && continue
+    for k = 1:nb_s
+        var = gen(req, expr, k)
+        @constraint(model, doing[c, k] ≤ var)
+    end
+end
 
 pref = reshape(courses.pref, :, 1)
-@objective(model, Max, sum(done .* courses[:,:pref]))
+@objective(model, Max, sum(doing .* courses[:,:pref]))
 
 optimize!(model)
 

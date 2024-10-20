@@ -1,151 +1,82 @@
 
-to_expr(str) = replace(str,
-r"(?<mat>[A-Z]{3})(?<num>[0-9]{4}[A-Z]?)" => s"(:\g<mat>\g<num> ∈ done)",
-r"ET"i => "&&",
-r"OU"i => "||",
-r"COMPÉTENCE ÉQUIVALENTE."i => "true",
-r"[0-9]+ CRÉDITS DE SIGLE [A-Z]{3}"i => "true",
-"," => "&&")
+# req = filter(s -> match.(r"prerequisite_courses.*(et|ou)"i, s) ≠ nothing, vcat(split.(decision.req, "\n")...))
 
-to_eq(str) = replace(str,
-r"(?<mat>[A-Z]{3})(?<num>[0-9]{4}[A-Z]?)" => s"done_before[i,k]***(:\g<mat>\g<num> ∈ done)",
-r"ET"i => "&&",
-r"OU"i => "||",
-r"COMPÉTENCE ÉQUIVALENTE."i => "true",
-r"[0-9]+ CRÉDITS DE SIGLE [A-Z]{3}"i => "true",
-"," => "&&")
+using Random, JuMP
 
+struct Reqs
+    model::Model # has var: doing[,] and done_before[,]
+    d::Dict{Symbol, Int}
+    courses::DataFrame
+end
 
-function transform_eq(f, str)
-    l = strip.(split(str, "\n"))
-    for str in l
-        l = strip.(split(str, ":"))
-        l[1] ≠ "prerequisite_courses" && continue
-        str = l[2]
-        # println("str  ", str)
-        if match(r"COLLÈGE"i, str) !== nothing # Don't consider CEGEP courses
-            # println("COLLEGE warning: $str")
-            return "1"
+function Reqs(m::Model, c::DataFrame)
+    d = Dict([c[i, :sigle] => i for i=1:nrow(c)])
+    Reqs(m, d, c)
+end
+
+function to_expr(req::Reqs, i)
+    strs = split(req.courses[i,:req], "\n")
+    for str in strs
+        m = match(r"^prerequisite_courses\s*:\s*(?<str>.*)", str)
+        if m ≠ nothing
+            str = replace(m["str"],
+                r"(?<mat>[A-Z]{3})(?<num>[0-9]{4}[A-Z]?)" => s":\g<mat>\g<num>",
+                r"\bET\b"i => "&",
+                r"\bOU\b"i => "|",
+                r"COMPÉTENCE ÉQUIVALENTE."i => "1",
+                r"[0-9]+ CRÉDITS( DE SIGLE [A-Z]{3})?"i => "1",
+                "," => "&") # Watch out for this
+            # println(str)
+            !isnothing(match(r"Collège"i, str)) && continue ## disregard cegep requirements
+            return Meta.parse(str)
         end
-
-        m = match(r"(?<cr>[0-9]+) CRÉDITS", str) ## ignore
-        if m !== nothing
-            # println(m["cr"])
-            cr = parse(Int, m["cr"])
-            return true
-        end
-
-        str2 = replace(str,
-            r"(?<mat>[A-Z]{3})(?<num>[0-9]{4}[A-Z]?)" => s"(:\g<mat>\g<num> ∈ done)",
-            r"ET"i => "&&",
-            r"OU"i => "||",
-            r"COMPÉTENCE ÉQUIVALENTE."i => "true",
-            r"[0-9]+ CRÉDITS DE SIGLE [A-Z]{3}"i => "true",
-            "," => "&&")
-        # println("pre  ", str)
-        # println("post ", str2)
-        eq = Meta.parse(str2)
-
-        # println("eq   ", eq)
-        return eval(eq)
     end
 end
 
-function check_req(str, done)
-    l = strip.(split(str, "\n"))
-    for str in l
-        l = strip.(split(str, ":"))
-        l[1] ≠ "prerequisite_courses" && return true
-        str = l[2]
-        # println("str  ", str)
-        if match(r"COLLÈGE"i, str) !== nothing # Don't consider CEGEP courses
-            # println("COLLEGE warning: $str")
-            return true
+function gen(r::Reqs, expr::Expr, k::Int)
+    if expr.head == :call
+        println("got a $(expr.args[1])")
+        if expr.args[1] == :|
+            a = @variable(r.model, binary=true) # indicator variable
+            b = gen(r, expr.args[2], k)
+            c = gen(r, expr.args[3], k)
+            println("generate constraint!")
+            println("a: $a")
+            println("b: $b")
+            @constraint(r.model, a ≥ b)
+            @constraint(r.model, a ≥ c)
+            @constraint(r.model, a ≤ b + c)
+            return a
+        elseif expr.args[1] == :&
+            a = @variable(r.model, binary=true) # indicator variable
+            b = gen(r, expr.args[2], k)
+            c = gen(r, expr.args[3], k)
+            println("generate constraint!")
+            @constraint(r.model, a ≤ b)
+            @constraint(r.model, a ≤ c)
+            @constraint(r.model, a ≥ b + c - 1)
+            return a
         end
-
-        m = match(r"(?<cr>[0-9]+) CRÉDITS", str) ## ignore
-        if m !== nothing
-            # println(m["cr"])
-            cr = parse(Int, m["cr"])
-            return true
-        end
-
-        str2 = replace(str,
-            r"(?<mat>[A-Z]{3})(?<num>[0-9]{4}[A-Z]?)" => s"(:\g<mat>\g<num> ∈ done)",
-            r"ET"i => "&&",
-            r"OU"i => "||",
-            r"COMPÉTENCE ÉQUIVALENTE."i => "true",
-            r"[0-9]+ CRÉDITS DE SIGLE [A-Z]{3}"i => "true",
-            "," => "&&")
-        # println("pre  ", str)
-        # println("post ", str2)
-        eq = Meta.parse(str2)
-
-        # println("eq   ", eq)
-        return eval(eq)
+    else
+        throw("blip")
     end
 end
 
+function gen(r::Reqs, q::QuoteNode, k::Int)
+    c = q.value
+    if haskey(r.d, c)
+        i = r.d[c]
+        println("Got $c -> $i")
+        return r.model[:done_before][i,k]
+    else
+        return 0
+    end
+end
 
+gen(r::Reqs, cst::Int, k::Int) = cst
 
-# function generateLHS(str, course_j, var)
-#     l = strip.(split(str, ":"))
-#     l[1] ≠ "prerequisite_courses" && nothing
-#     str = l[2]
-#     if match(r"COLLÈGE", str) !== nothing # Don't consider CEGEP courses
-#         # println("COLLEGE warning: $str")
-#         return Expr(:call, :identity, 1)
-#     end
-
-#     m = match(r"(?<cr>[0-9]+) CRÉDITS", str) ## ignore
-#     if m !== nothing
-#         # println(m["cr"])
-#         cr = parse(Int, m["cr"])
-#         return Expr(:call, :identity, 1)
-#     end
-
-#     str2 = replace(str,
-#         r"(?<mat>[A-Z]{3})(?<num>[0-9]{4}[A-Z]?)" => s":\g<mat>\g<num>",
-#         r"ET"i => "*",
-#         r"OU"i => "+",
-#         r"COMPÉTENCE ÉQUIVALENTE."i => "",
-#         r"12 CRÉDITS"i => "",
-#         "," => "")
-#     eq1 = Meta.parse(str2)
-
-#     function _transf(expr, course_j, var)
-#         if isa(expr, Expr)
-#             new_args = [_transf(a, course_j, var) for a in expr.args[2:end]]
-#             return Expr(expr.head, expr.args[1], new_args...)
-#         elseif isa(expr, QuoteNode)
-#             println(typeof(expr.value))
-#             i = course_j[expr.value] # get(course_j, expr.value, 0)
-#             # i == 0 && return Expr(:call, :identity, 0)
-#             return :(($var)[$i])
-#         end
-#     end
-
-#     return _transf(eq1, course_j, var)
-# end
-
-# function generateLHS!(prog::Program, course_j, var)
-#     lhs = Union{Nothing,Expr}[]
-#     for row in eachrow(prog.courses)
-#         println("$(row.sigle): $(row.req_str)")
-#         parts = split(row.req_str, "; ")
-#         tmp_lhs = nothing
-#         for part in parts
-#             ex_t = strip.(split(part, ":"))
-#             if !isempty(ex_t[1]) && ex_t[1][1:5] == "PRÉA"
-#                 tmp_lhs = generateLHS(strip(ex_t[2]), course_j, var)
-#             end
-#             # @show ex
-#         end
-#         println(tmp_lhs)
-#         push!(lhs, tmp_lhs)
-#     end
-
-#     prog.courses.req_lhs = lhs
-# end
-# # generateLHS!(prog, course_j, :done_var)
-
+#to_eq("BCM2502 ET IFT2015 et (BIO2041 ou MAT1978 ou STT1700)")
+# req = Reqs(model, courses);
+# zzz = to_expr(req, d[:IFT3395])
+# gen(req, zzz, 2)
+# all_constraints(model, include_variable_in_set_constraints=false)
