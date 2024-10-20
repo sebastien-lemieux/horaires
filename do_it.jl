@@ -54,6 +54,8 @@ c2d = [decision[j, :sigle] == courses[i, :sigle] for i=1:nb_c, j=1:nb_d]
 ## build_model
 using JuMP, Gurobi
 model = Model(Gurobi.Optimizer)
+req = Reqs(model, courses);
+
 @variable(model, decision_var[i=1:nb_d, j=1:nb_s] ≥ 0, Bin)
 
 @expression(model, doing, c2d * decision_var) # pool sections into courses
@@ -78,10 +80,21 @@ end
 # max credits and prog. objective
 @expression(model, done, sum(doing, dims=2))
 @constraint(model, [k=1:nb_s], sum(decision_var[:,k] .* decision[:,:credits]) ≤ 15)
-@constraint(model, sum(done .* courses[:,:credits]) ≥ 90)
+# @constraint(model, sum(done .* courses[:,:credits]) ≥ 90)
 
 # blocs
-
+for segment in prog.segments
+    println("Working on segment $(segment.name)")
+    for bloc in segment.blocs
+        println("Working on bloc $(bloc.name)")
+        i = [req.d[c] for c in bloc.courses]
+        isempty(i) && continue
+        println(i)
+        println(sum(done[i]))
+        println(bloc.min, ", ", bloc.max)
+        # @constraint(model, bloc.min ≤ sum(done[i]) ≤ bloc.max)
+    end
+end
 
 
 # prereq
@@ -98,7 +111,6 @@ for i in 1:nb_c, k in 1:nb_s  # Start k from 2 because for k=1, done_before[i, 1
     end
 end
 
-req = Reqs(model, courses);
 for c = 1:nb_c
     expr = to_expr(req, c)
     isnothing(expr) && continue
@@ -111,7 +123,14 @@ end
 pref = reshape(courses.pref, :, 1)
 @objective(model, Max, sum(doing .* courses[:,:pref]))
 
+set_optimizer_attribute(model, "FeasRelaxBigM", 1e6)  # Large M for the relaxation
 optimize!(model)
+
+# vars = GRBgetvars(model) #  model.getVars()
+# ?ubpen = [1.0]*model.numVars
+# GRBfeasrelax(model, 1, false, vars, None, 1842, None, None)
+# model.optimize()
+
 
 choices = round.(Bool, value.(decision_var))
 for k=1:nb_s

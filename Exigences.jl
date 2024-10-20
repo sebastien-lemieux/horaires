@@ -35,14 +35,14 @@ end
 
 function gen(r::Reqs, expr::Expr, k::Int)
     if expr.head == :call
-        println("got a $(expr.args[1])")
+        # println("got a $(expr.args[1])")
         if expr.args[1] == :|
             a = @variable(r.model, binary=true) # indicator variable
             b = gen(r, expr.args[2], k)
             c = gen(r, expr.args[3], k)
-            println("generate constraint!")
-            println("a: $a")
-            println("b: $b")
+            # println("generate constraint!")
+            # println("a: $a")
+            # println("b: $b")
             @constraint(r.model, a ≥ b)
             @constraint(r.model, a ≥ c)
             @constraint(r.model, a ≤ b + c)
@@ -51,7 +51,7 @@ function gen(r::Reqs, expr::Expr, k::Int)
             a = @variable(r.model, binary=true) # indicator variable
             b = gen(r, expr.args[2], k)
             c = gen(r, expr.args[3], k)
-            println("generate constraint!")
+            # println("generate constraint!")
             @constraint(r.model, a ≤ b)
             @constraint(r.model, a ≤ c)
             @constraint(r.model, a ≥ b + c - 1)
@@ -66,7 +66,7 @@ function gen(r::Reqs, q::QuoteNode, k::Int)
     c = q.value
     if haskey(r.d, c)
         i = r.d[c]
-        println("Got $c -> $i")
+        # println("Got $c -> $i")
         return r.model[:done_before][i,k]
     else
         return 0
