@@ -58,15 +58,5 @@ end
 
 _conflict(span_a::Span, span_b::Span) = (span_a.s <= span_b.e) && (span_a.e >= span_b.s)
 _conflict(a::Vector{Span}, b::Vector{Span}) = any([_conflict(sa, sb) for sa in a, sb in b])
-_conflict(v::Vector{Vector{Span}}, new::Vector{Span}) = any([_conflict(last(v), prev) for prev in v[1:end-1]])
 
-
-function conflict_expl(a::Vector{Span}, b::Vector{Span})
-    conflicts = Set{Vector{Int}}()
-
-    for sa in a, sb in b
-        _conflict(sa, sb) && push!(conflicts, [sa.s_id, sb.s_id])
-    end
-
-    return conflicts
-end
+conflict_expl(a::Vector{Span}, b::Vector{Span}) = [(sa, sb) for sa in a, sb in b if _conflict(sa, sb)]

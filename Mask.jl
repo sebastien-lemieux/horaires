@@ -23,6 +23,9 @@ Base.getindex(s::M, f::Function) where {M <: AbstractMaskable} =
 
 Base.getindex(m::Mask{T}, col::Symbol) where T <: AbstractMaskable = m.t.df[m.m, col]
 
+# Base.setindex!(m::Mask{T}, val, col::Symbol) where T <: AbstractMaskable = (m.t.df[m.m, col] = val)
+# Base.setindex!(m::Mask{T}, val, cols...) where T <: AbstractMaskable = (m.t.df[m.m, cols] .= val)
+
 DataFrames.DataFrame(mask::Mask{T}) where T <: AbstractMaskable = mask.t.df[mask.m,:]
 
 macro maskable(expr)

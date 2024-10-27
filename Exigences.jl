@@ -8,6 +8,7 @@ struct Reqs
     d::Dict{Symbol, Int}
     courses::DataFrame
 end
+Base.getindex(r::Reqs, sigle::Symbol) = r.courses[r.d[sigle],:]
 
 function Reqs(m::Model, c::DataFrame)
     d = Dict([c[i, :sigle] => i for i=1:nrow(c)])

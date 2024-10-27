@@ -1,80 +1,62 @@
-prog = p["Baccalauréat en bio-informatique (B. Sc.)"]
-# prog = p[Symbol("146811")]
-# courses = getcourses(prog)
+function preferences!(courses, fn::String)
+    f = open(fn, "r")
+    for line in readlines(f)
+        println(line)
+        c, pref = strip.(split(line, ":"))
+        courses[courses.sigle .== Symbol(c), :pref] .= parse(Float32, pref)
+        # println(courses[courses.sigle .== Symbol(c), :])
+    end
+end
 
-# id = r[prog].id # Returns 
+function doneby!(model, sigle, semester)
+    tmp_id = findfirst(sigle .== courses.sigle)
+    tmp_done_before = model[:done_before][tmp_id, semester]
+    tmp_doing = model[:doing][tmp_id, semester]
+    @constraint(model, tmp_done_before + tmp_doing ≥ 1)
+end
 
-# for (i, sym) in enumerate(unique(id))
-#     println(i, ", ", sym)
-# end
+function showsolution(model, semester_schedules, decision)
+    choices = round.(Bool, value.(model[:decision_var]))
+    for k=1:nb_s
+        println("Session $k ($(semester_schedules[k]))")
+        for i=1:nb_d
+            choices[i,k] && println("  $i: $(decision[i, :sigle]):$(decision[i, :msection])")
+        end
+    end
+end
 
-# a = s[:semester, :A24]
-# b = a & s[:sigle, :IFT1015] & s[:msection, :A]
-# c = a & s[:sigle, :BIN1002]
-# # c = s[:msection, :A]
-# bcm = s[:sigle, :BCM1521] & a
+function getspan(decision, sigle, msection, semester)
+    subset = (decision.sigle .== sigle .&& decision.msection .== msection .&& decision.semester .== semester)
+    res = decision[subset,:span]
+    return res[1]
+end
 
+function conflictissues!(active_conflict, decision, s::Schedules)
+    active_conflict.v_issue .= value.(active_conflict.var) .≤ 0
 
-# conflict_expl(vcat(b[:span]...), vcat(c[:span]...))
+    for issue in eachrow(active_conflict[active_conflict.v_issue,:])
+        a_span = getspan(decision, issue.sigle_a, issue.msection_a, issue.schedule)
+        b_span = getspan(decision, issue.sigle_b, issue.msection_b, issue.schedule)
+        for (sa, sb) in conflict_expl(a_span, b_span)
+            function __string(i)
+                row = s.df[i.s_id, [:sigle, :name, :msection, :volet, :semester]]
+                return "$(i.s_id)-$(row.sigle)($(row.msection)):$(row.volet)"
+            end
+            date_str = Dates.format(sb.s, "yyyy-mm-dd HH:MM")
+            println("$date_str:  $(__string(sa)) with $(__string(sb))")
 
-# span1 = sort(vcat(b[:span]...))
-# span2 = sort(vcat(c[:span]...))
+        end
 
-# if _conflict(span1, span2)
-#     xpl = conflict_expl(span1, span2)
-#     for x in xpl
-#         cfl = s.df[x, [:sigle, :section, :volet, :teachers, :semester, :jour, :time_s, :time_e]]
-#         println(cfl)
-#         println(Dates.format(maximum(cfl.time_s), "HH:MM"), "-", Dates.format(minimum(cfl.time_e), "HH:MM"))
-#     end
-# end
+    end
+end
 
-### First attempt Optimizer
-
-# section_v = Section[]
-# course_j = Dict{Symbol, Int}()
-# for (j, sym) in enumerate(course_list)
-#     course_j[sym] = j
-#     sections = prepSections(schedules, prog, sym)
-#     for sec in sections
-#         push!(section_v, sec)
-#     end
-# end
-
-# done = Symbol[:IFT_1065, :IFT_1016, :BCM_2550, :BIN_1002, :BCM_1501]
-
-# @variable(model, sec_var[i=1:length(section_v)])
-# @variable(model, done_var[i=1:length(course_list)])
-
-# ## Can't take a course already taken
-# for (i, sec) in enumerate(section_v)
-#     j = course_j(sec.sigle)
-#     @constraint(model, sec_var[i] + done_var[j] ≤ 2)
-# end
-
-# ## Req must be Met
-# str = "IFT2015 ET (MAT1978 OU MAT1720 OU BIG9999)"
-# generateLHS(str, course_j, :done_var)
-# for sec in section_v
-#     lhs = eval(generateLHS(str, course_j, :done_var))
-#     @constraint(model, lhs ≥ 1)
-# end
-
-# ## No section in conflict
-# for i=1:length(section_v), j=(i+1):length(section_v)
-#     if conflict(section_v[i].spans, section_v[j].spans)
-#         println("Conflict: $(section_v[i]) with $(section_v[j])")
-#         @constraint(model, sec_var[i] + sec_var[j] ≤ 1)
-#     end
-# end
-
-# ## No more than 15 credits per session
-# @constraint(model, sum(sec_var[i] * section_v[i].credit for i in eachindex(section_v)) ≤ 15)
-
-# ## Maximize the number of credit
-# @objective(model, Max, sum(sec_var[i] * section_v[i].credit for i=eachindex(section_v)))
-
-# optimize!(model)
-
-# section_v[value.(sec_var) .== 1.0] ## Show results
-
+function reportblocs!(active_bloc)
+    active_bloc.v_min = value.(active_bloc.min)
+    active_bloc.v_max = value.(active_bloc.max)
+    active_bloc.v_credits = value.(active_bloc.credits)
+    active_bloc.b_min = [b.min for b in active_bloc.bloc]
+    active_bloc.b_max = [b.max for b in active_bloc.bloc]
+    active_bloc.id = [b.id for b in active_bloc.bloc]
+    active_bloc.name = [b.name for b in active_bloc.bloc]
+    active_bloc[:,[:id, :name, :b_min, :b_max, :v_credits]]
+end
