@@ -1,9 +1,17 @@
 function preferences!(courses, fn::String)
     f = open(fn, "r")
     for line in readlines(f)
-        println(line)
-        c, pref = strip.(split(line, ":"))
+        c, pref = strip.(split(line))
         courses[courses.sigle .== Symbol(c), :pref] .= parse(Float32, pref)
+        # println(courses[courses.sigle .== Symbol(c), :])
+    end
+end
+
+function done!(courses, fn::String)
+    f = open(fn, "r")
+    for line in readlines(f)
+        c = strip(line)
+        courses[courses.sigle .== Symbol(c), :before] .= 1
         # println(courses[courses.sigle .== Symbol(c), :])
     end
 end
@@ -59,4 +67,13 @@ function reportblocs!(active_bloc)
     active_bloc.id = [b.id for b in active_bloc.bloc]
     active_bloc.name = [b.name for b in active_bloc.bloc]
     active_bloc[:,[:id, :name, :b_min, :b_max, :v_credits]]
+end
+
+function preferences_template(courses, fn)
+    f = open(fn, "w")
+    o = sortperm(courses.sigle)
+    for i in o
+        println(f, "$(courses[i, "sigle"]) 1.0")
+    end
+    close(f)
 end

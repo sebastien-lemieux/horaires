@@ -24,8 +24,8 @@ function to_expr(req::Reqs, i)
                 r"(?<mat>[A-Z]{3})(?<num>[0-9]{4}[A-Z]?)" => s":\g<mat>\g<num>",
                 r"\bET\b"i => "&",
                 r"\bOU\b"i => "|",
-                r"COMPÉTENCE ÉQUIVALENTE."i => "1",
-                r"[0-9]+ CRÉDITS( DE SIGLE [A-Z]{3})?"i => "1",
+                r"COMPÉTENCE ÉQUIVALENTE."i => "1.0",
+                r"[0-9]+ CRÉDITS( DE SIGLE [A-Z]{3})?"i => "1.0",
                 "," => "&") # Watch out for this
             # println(str)
             !isnothing(match(r"Collège"i, str)) && continue ## disregard cegep requirements
@@ -70,11 +70,13 @@ function gen(r::Reqs, q::QuoteNode, k::Int)
         # println("Got $c -> $i")
         return r.model[:done_before][i,k]
     else
-        return 0
+        return 0.0
     end
 end
 
-gen(r::Reqs, cst::Int, k::Int) = cst
+
+gen(r::Reqs, cst::Int, k::Int) = -1000
+gen(r::Reqs, cst::Float64, k::Int) = cst
 
 #to_eq("BCM2502 ET IFT2015 et (BIO2041 ou MAT1978 ou STT1700)")
 # req = Reqs(model, courses);
