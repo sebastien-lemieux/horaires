@@ -59,7 +59,8 @@ struct Programs ## Turn into a Maskable (df for programs)
     name::Dict{String, Int}
 end
 
-function Programs(url::String)
+struct FromPlanifium end
+function Programs(url::String, ::Type{FromPlanifium})
     rsp = HTTP.get(url)
     @assert(rsp.status == 200)
     prs = JSON.parse(String(rsp.body))["programs"]
