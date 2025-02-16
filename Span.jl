@@ -2,6 +2,7 @@ using Dates
 
 const idtoday = [:Lu, :Ma, :Me, :Je, :Ve, :Sa, :De]
 const daytoid = Dict(idtoday .=> 1:length(idtoday))
+const acatosyn = Dict("Lundi" => :Lu, "Mardi" => :Ma, "Mercredi" => :Me, "Jeudi" => :Je, "Vendredi" => :Ve, "Samedi" => :Sa, "Dimanche" => :De)
 
 struct Span # Add a row id to to reidentify the exact schedule that cause conflict
     s_id::Int
