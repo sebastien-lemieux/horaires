@@ -1,4 +1,4 @@
-using DataFrames, HTTP, JSON, JLD2
+using DataFrames, HTTP, JSON, JLD2, CSV, Dates
 
 # struct Schedules end
 
@@ -81,9 +81,12 @@ function fixSched!(df::DataFrame)
     select!(df, Not(:sections_volets_activities_end_time), :sections_volets_activities_end_time => ByRow(_Time) => :time_e)
 end
 
-## Get from URL
+## Load from...
 
-function Schedules(url::String)
+struct FromPlanifium end
+struct FromAcademicCSV end
+
+function Schedules(url::String, ::Type{FromPlanifium})
     println("Loading from API...")
     rsp = HTTP.get(url)
     @assert(rsp.status == 200)
@@ -100,3 +103,60 @@ function Schedules(url::String)
     println("Done.")
     return schedules
 end
+
+# s = Schedules("https://planifium-api.onrender.com/api/v1/schedules", FromPlanifium)
+
+
+function Schedules(fn::String, ::Type{FromAcademicCSV})
+    println("Loading from CSV...")
+
+    raw = DataFrame(CSV.File(fn, types=String))
+    subset!(raw, "Composante - État" => state -> (state .== "Activé"))
+    subset!(raw, "Trame - Identifiant" => ByRow(trame -> (ismissing(trame) | (trame ≠ "2x2h\n2x2h"))))
+    subset!(raw, "Heures de la rencontre - Jour" => ByRow(jour -> (!ismissing(jour))))
+    
+    function _semester(str::String)
+        tmp = ['H', 'P', 'E', 'A']
+        c = tmp[parse(Int, str[4])]
+        return Symbol("$c$(str[2:3])")
+    end
+    
+    df = DataFrame()
+    df.sigle = Symbol.(raw."Cours - Identifiant")
+    df.section = [Symbol(str) for str in raw."Composante - Identifiant"]
+    df.msection = [Symbol(str[1]) for str in raw."Composante - Identifiant"]
+    df.volet = [Symbol(str) for str in raw."Type de composante - Identifiant"]
+    df.jour = [acatosyn[str] for str in raw."Heures de la rencontre - Jour"]
+    df.semester = _semester.(raw."Trimestre - Identifiant")
+    df.row_id = 1:nrow(df)
+    df.span = expand.(df.row_id, raw."Heures de la rencontre - Heure de début", raw."Heures de la rencontre - Heure de fin",
+                      raw."Dates et heures - Date de début", raw."Dates et heures - Date de fin", df.jour)
+    
+    # fixSched!(df)
+    # schedules = Schedules(df)
+
+    println("Done.")
+    return Schedules(df)
+end
+
+function Schedules(fn_v::Vector{String}, ::Type{FromAcademicCSV})
+    all_s = [Schedules(fn, FromAcademicCSV) for fn in fn_v]
+    reduce(all_s) do a, b
+        Schedules(vcat(a.df, b.df))
+    end
+end
+
+function Base.append!(a::Schedules, b::Schedules)
+    # academic_s = Schedules(["data/A25.csv", "data/H26.csv"], FromAcademicCSV)
+    df_a = copy(a.df)
+    df_b = copy(b.df)
+    cols = names(df_a) ∩ names(df_b)
+    overwrite_c = unique(df_b.sigle)
+    merged_s = vcat(subset(df_a, :sigle => ByRow(s -> s ∉ overwrite_c))[!,cols], df_b[!,cols])
+    merged_s.row_id = 1:nrow(merged_s)
+    return Schedules(merged_s)
+end
+
+
+
+# s = Schedules("data/A25.csv", FromAcademicCSV)
