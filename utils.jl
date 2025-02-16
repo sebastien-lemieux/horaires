@@ -47,7 +47,7 @@ function conflictissues!(active_conflict, decision, s::Schedules)
         b_span = getspan(decision, issue.sigle_b, issue.msection_b, issue.schedule)
         for (sa, sb) in conflict_expl(a_span, b_span)
             function __string(i)
-                row = s.df[i.s_id, [:sigle, :name, :msection, :volet, :semester]]
+                row = s.df[i.s_id, [:sigle, :msection, :volet, :semester]]
                 return "$(i.s_id)-$(row.sigle)($(row.msection)):$(row.volet)"
             end
             date_str = Dates.format(sb.s, "yyyy-mm-dd HH:MM")
