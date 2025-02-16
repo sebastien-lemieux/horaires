@@ -1,6 +1,6 @@
-# Remove BIN1002 TH on 2024-10-17
-m = s[row -> row.sigle == :BIN1002 && row.volet == :TH && any(["2024-10-17" == Dates.format(sp.s, "yyyy-mm-dd") for sp in row.span])]
-filter!(sp -> "2024-10-17" ≠ Dates.format(sp.s, "yyyy-mm-dd"),s.df[m.m,:][1,:span])
+# # Remove BIN1002 TH on 2024-10-17
+# m = s[row -> row.sigle == :BIN1002 && row.volet == :TH && any(["2024-10-17" == Dates.format(sp.s, "yyyy-mm-dd") for sp in row.span])]
+# filter!(sp -> "2024-10-17" ≠ Dates.format(sp.s, "yyyy-mm-dd"),s.df[m.m,:][1,:span])
 
 # Removing BIN3005 in H, E
 m = s[row -> row.sigle == :BIN3005 && String(row.semester)[1] ∈ ['H', 'E']]
@@ -28,6 +28,8 @@ b = blocs[4]
 blocs[4] = Bloc(b.name, b.max+3, b.min+3, b.id, [b.courses; :BCM2002])
 
 # add nb credits cst to bcm3515
+m = r[row -> row.id == :BCM3515]
+m.t.df[m.m, :requirement_text] .= "prerequisite_courses :  BCM2003 et BCM2502"
 
 # Remove HEC3015
 
@@ -36,7 +38,20 @@ blocs = prog.segments[2].blocs
 b = blocs[5]
 blocs[5] = Bloc(b.name, b.max, b.min, b.id, filter(x -> x ≠ :HEC3015, b.courses))
 
-# Add requirements to IFT3545
+function changeprereq(sigle::Symbol, req::String)
+    m = r[row -> row.id == sigle]
+    m.t.df[m.m, :requirement_text] .= "prerequisite_courses :  $req"    
+end
 
-m = r[row -> row.id == :IFT3545]
-m.t.df[m.m, :requirement_text] .= "prerequisite_courses :  IFT1065 et IFT2015"
+changeprereq(:IFT3545, "IFT1065 et IFT2015")
+changeprereq(:CHM3450, "CHM2103")
+changeprereq(:STT2000, "STT1700")
+changeprereq(:BIO2306, "BIO1534")
+changeprereq(:BIO2043, "BCM1503")
+changeprereq(:IFT2125, "IFT1025")
+changeprereq(:PBC3060, "BIO1153 et BCM2502")
+
+
+
+
+
