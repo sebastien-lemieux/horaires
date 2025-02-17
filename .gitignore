@@ -3,3 +3,4 @@ Manifest.toml
 *.jld2
 data/*
 example.txt
+*.pdf
