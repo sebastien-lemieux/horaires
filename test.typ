@@ -1,3 +1,5 @@
+// typst watch test.typ data/test.pdf
+
 #set page(width: 6in, height: auto, margin: 0pt)
 
 #let course(x, y, str) = {
@@ -29,6 +31,6 @@
       grid.cell(x: i+1, y:0, fill: rgb("ffffff"))[#text(size: 7pt, style: "italic", weight: "bold")[#str]]
     }
   ),
-  course(1, 0, "course\n#1"),
-  course(3, 2, "course\n#2"),
+  course(1, 0, "cours\n#1"),
+  course(3, 2, "cours\n#2"),
 )

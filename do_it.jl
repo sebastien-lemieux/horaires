@@ -182,13 +182,13 @@ big = 1000.0
 
 ## Basic ##
 
-optimize!(model)
+# optimize!(model)
 
-showsolution(model, semester_schedules, decision)
-conflictissues!(active_conflict, decision, s)
+# showsolution(model, semester_schedules, decision)
+# conflictissues!(active_conflict, decision, s)
 
-# Report blocs
-reportblocs!(active_bloc)
+# # Report blocs
+# reportblocs!(active_bloc)
 
 ## Explore ##
 
