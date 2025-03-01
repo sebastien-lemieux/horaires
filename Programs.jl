@@ -3,7 +3,7 @@ module Programs
 using DataFrames, HTTP, JSON
 using ..Common
 
-export ProgramCollection, Program
+export ProgramCollection, Program, getcourses
 
 struct Bloc
     name::String

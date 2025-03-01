@@ -1,4 +1,4 @@
-module Cheminements
+# module Cheminements
 
 using JLD2
 
@@ -9,15 +9,15 @@ include("Repertoires.jl")
 include("Requirements.jl")
 include("Spans.jl")
 include("Schedules.jl")
-
 using .Masks, .Programs, .Repertoires, .Requirements, .Schedules, .Common, .Spans
 
-# export Masks
-# using .Programs: Program, getcourses
-# using .Repertoires: Repertoire
-# using .Requirements: ReqCollection, to_expr, gen
+
+include("Optimize.jl")
+using .Optimizers
+
 
 export data
+export ChemOpt_1
 
 function data()
     if isfile("data.jld2")
@@ -32,4 +32,4 @@ function data()
     return p, r, s
 end
 
-end
+# end

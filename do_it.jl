@@ -1,16 +1,16 @@
-# using JLD2
 
 include("Cheminements.jl")
-using .Cheminements
 
-include("utils.jl");
+# include("utils.jl");
 
 ## Load or prepare data
+p, r, s = data();
 
-ChemOpt_1(p["Baccalauréat en bio-informatique (B. Sc.)"])
+opt = ChemOpt_1(p["Baccalauréat en bio-informatique (B. Sc.)"], r, s)
 
 
 
+#####
 if isfile("data.jld2")
     p, r, s = load("data.jld2", "p", "r", "s")
 else

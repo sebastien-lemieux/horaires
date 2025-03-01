@@ -3,11 +3,15 @@ module Optimizers
 # using JuMP, Gurobi
 using DataFrames
 
-using .Programs
+using ..Programs, ..Repertoires, ..Schedules
+
+export ChemOpt_1
 
 # Cheminement optimizer
 struct ChemOpt_1
     prog::Program
+    r::Repertoire
+    s::ScheduleCollection
     courses::DataFrame
     semester_schedules::Vector{Symbol}
     decision::DataFrame
@@ -35,9 +39,10 @@ function done!(courses, fn::String)
     end
 end
 
-function ChemOpt_1(prog::Program, semester_schedules::Vector{Symbol} = [:A25, :H26, :A25, :H26, :A25, :H26],
-                 pref_fn::Union{String, Nothing} = nothing,
-                 done_fn::Union{String, Nothing} = nothing)
+function ChemOpt_1(prog::Program, r::Repertoire, s::ScheduleCollection,
+                   semester_schedules::Vector{Symbol} = [:A25, :H26, :A25, :H26, :A25, :H26],
+                   pref_fn::Union{String, Nothing} = nothing,
+                   done_fn::Union{String, Nothing} = nothing)
     courses = getcourses(prog)
     courses.credits .= r[courses.sigle].credits
     courses.req .= r[courses.sigle].requirement_text
@@ -59,7 +64,7 @@ function ChemOpt_1(prog::Program, semester_schedules::Vector{Symbol} = [:A25, :H
 
     decision.credits = r[decision.sigle].credits
 
-    return ChemOpt_1(prog, courses, semester_schedules, decision)
+    return ChemOpt_1(prog, r, s, courses, semester_schedules, decision)
 end
 
 end
