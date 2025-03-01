@@ -1,21 +1,3 @@
-function preferences!(courses, fn::String)
-    f = open(fn, "r")
-    for line in readlines(f)
-        c, pref = strip.(split(line))
-        courses[courses.sigle .== Symbol(c), :pref] .= parse(Float32, pref)
-        # println(courses[courses.sigle .== Symbol(c), :])
-    end
-end
-
-function done!(courses, fn::String)
-    f = open(fn, "r")
-    for line in readlines(f)
-        c = strip(line)
-        courses[courses.sigle .== Symbol(c), :before] .= 1
-        # println(courses[courses.sigle .== Symbol(c), :])
-    end
-end
-
 function doneby!(model, sigle, semester)
     tmp_id = findfirst(sigle .== courses.sigle)
     tmp_done_before = model[:done_before][tmp_id, semester]

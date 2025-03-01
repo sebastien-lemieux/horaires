@@ -1,4 +1,8 @@
+module Masks
+
 using DataFrames
+
+export AbstractMaskable, Mask
 
 abstract type AbstractMaskable end
 
@@ -84,3 +88,4 @@ end
 #     end
 # end
 
+end

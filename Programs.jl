@@ -1,4 +1,9 @@
+module Programs
+
 using DataFrames, HTTP, JSON
+using ..Common
+
+export ProgramCollection, Program
 
 struct Bloc
     name::String
@@ -53,14 +58,13 @@ function Program(program_json)
     )
 end
 
-struct Programs ## Turn into a Maskable (df for programs)
+struct ProgramCollection ## Turn into a Maskable (df for programs)
     progs::Vector{Program}
     id::Dict{Symbol, Int}
     name::Dict{String, Int}
 end
 
-struct FromPlanifium end
-function Programs(url::String, ::Type{FromPlanifium})
+function ProgramCollection(url::String, ::Type{FromPlanifium})
     rsp = HTTP.get(url)
     @assert(rsp.status == 200)
     prs = JSON.parse(String(rsp.body))["programs"]
@@ -76,13 +80,13 @@ function Programs(url::String, ::Type{FromPlanifium})
         name[prog.name] = length(progs)
     end
 
-    return Programs(progs, id, name)
+    return ProgramCollection(progs, id, name)
 end
 
-Base.getindex(p::Programs, index::Int) = p.progs[index]
-Base.getindex(p::Programs, sym::Symbol) = p.progs[p.id[sym]]
-Base.getindex(p::Programs, name::String) = p.progs[p.name[name]]
-Base.getindex(p::Programs, r::Regex) = [p.progs[i] for (name, i) in p.name if !isnothing(match(r, name))]
+Base.getindex(p::ProgramCollection, index::Int) = p.progs[index]
+Base.getindex(p::ProgramCollection, sym::Symbol) = p.progs[p.id[sym]]
+Base.getindex(p::ProgramCollection, name::String) = p.progs[p.name[name]]
+Base.getindex(p::ProgramCollection, r::Regex) = [p.progs[i] for (name, i) in p.name if !isnothing(match(r, name))]
 
 function getcourses(p::Program)
     df = DataFrame(prog=Symbol[], segment=Symbol[], bloc=Symbol[], sigle=Symbol[])
@@ -99,3 +103,4 @@ function getcourses(p::Program)
     return df
 end
 
+end

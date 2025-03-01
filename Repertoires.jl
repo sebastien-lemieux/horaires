@@ -1,4 +1,9 @@
+module Repertoires
+
 using JSON, HTTP, DataFrames
+using ..Masks, ..Programs
+
+export Repertoire
 
 ## Act as an index over all courses details (no schedules since not session-specific)
 ## No schedule here since it is not associated to a semester yet
@@ -45,9 +50,11 @@ end
 # Search on course id Symbol (ex. :IFT1015)
 Base.getindex(r::Repertoire, sym::Symbol) = r.df[r.df.id .== sym, :]
 Base.getindex(r::Repertoire, v::Vector{Symbol}) = vcat([r[sym] for sym in v]...)
-Base.getindex(r::Repertoire, prog::Program) = r[getcourses(prog)]
+Base.getindex(r::Repertoire, prog::Program) = r[getcourses(prog).sigle]
 
 # Search with regex on course name (ex. r"programmation"i)
 Base.getindex(r::Repertoire, regex::Regex) = r.df[.!isnothing.(match.(regex, r.df.name)), :]
 
 credits(r::Repertoire, sym::Symbol) = r[sym][1, :credits]
+
+end

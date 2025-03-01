@@ -1,21 +1,22 @@
+module Requirements
 
 # req = filter(s -> match.(r"prerequisite_courses.*(et|ou)"i, s) ≠ nothing, vcat(split.(decision.req, "\n")...))
 
-using Random, JuMP
+using Random, JuMP, DataFrames
 
-struct Reqs
+struct ReqCollection
     model::Model # has var: doing[,] and done_before[,]
     d::Dict{Symbol, Int}
     courses::DataFrame
 end
-Base.getindex(r::Reqs, sigle::Symbol) = r.courses[r.d[sigle],:]
+Base.getindex(r::ReqCollection, sigle::Symbol) = r.courses[r.d[sigle],:]
 
-function Reqs(m::Model, c::DataFrame)
+function ReqCollection(m::Model, c::DataFrame)
     d = Dict([c[i, :sigle] => i for i=1:nrow(c)])
-    Reqs(m, d, c)
+    ReqCollection(m, d, c)
 end
 
-function to_expr(req::Reqs, i)
+function to_expr(req::ReqCollection, i)
     strs = split(req.courses[i,:req], "\n")
     for str in strs
         m = match(r"^prerequisite_courses\s*:\s*(?<str>.*)", str)
@@ -34,7 +35,7 @@ function to_expr(req::Reqs, i)
     end
 end
 
-function gen(r::Reqs, expr::Expr, k::Int)
+function gen(r::ReqCollection, expr::Expr, k::Int)
     if expr.head == :call
         # println("got a $(expr.args[1])")
         if expr.args[1] == :|
@@ -63,7 +64,7 @@ function gen(r::Reqs, expr::Expr, k::Int)
     end
 end
 
-function gen(r::Reqs, q::QuoteNode, k::Int)
+function gen(r::ReqCollection, q::QuoteNode, k::Int)
     c = q.value
     if haskey(r.d, c)
         i = r.d[c]
@@ -75,11 +76,13 @@ function gen(r::Reqs, q::QuoteNode, k::Int)
 end
 
 
-gen(r::Reqs, cst::Int, k::Int) = -1000
-gen(r::Reqs, cst::Float64, k::Int) = cst
+gen(r::ReqCollection, cst::Int, k::Int) = -1000
+gen(r::ReqCollection, cst::Float64, k::Int) = cst
 
 #to_eq("BCM2502 ET IFT2015 et (BIO2041 ou MAT1978 ou STT1700)")
-# req = Reqs(model, courses);
+# req = ReqCollection(model, courses);
 # zzz = to_expr(req, d[:IFT3395])
 # gen(req, zzz, 2)
 # all_constraints(model, include_variable_in_set_constraints=false)
+
+end

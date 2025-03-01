@@ -1,4 +1,8 @@
+module Spans
+
 using Dates
+
+export expand
 
 const idtoday = [:Lu, :Ma, :Me, :Je, :Ve, :Sa, :De]
 const daytoid = Dict(idtoday .=> 1:length(idtoday))
@@ -61,3 +65,5 @@ _conflict(span_a::Span, span_b::Span) = (span_a.s <= span_b.e) && (span_a.e >= s
 _conflict(a::Vector{Span}, b::Vector{Span}) = any([_conflict(sa, sb) for sa in a, sb in b])
 
 conflict_expl(a::Vector{Span}, b::Vector{Span}) = [(sa, sb) for sa in a, sb in b if _conflict(sa, sb)]
+
+end

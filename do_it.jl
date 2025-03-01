@@ -1,20 +1,20 @@
-using JLD2
+# using JLD2
 
-include("Mask.jl");
+include("Cheminements.jl")
+using .Cheminements
 
-include("Program.jl");
-include("Repertoire.jl");
-include("Span.jl");
-include("Schedules.jl");
-include("Exigences.jl");
 include("utils.jl");
 
 ## Load or prepare data
 
+ChemOpt_1(p["Baccalauréat en bio-informatique (B. Sc.)"])
+
+
+
 if isfile("data.jld2")
     p, r, s = load("data.jld2", "p", "r", "s")
 else
-    p = Programs("https://planifium-api.onrender.com/api/v1/programs")
+    p = ProgramCollection("https://planifium-api.onrender.com/api/v1/programs")
     r = Repertoire("https://planifium-api.onrender.com/api/v1/courses")
     s = Schedules("https://planifium-api.onrender.com/api/v1/schedules")
     
@@ -29,6 +29,8 @@ include("modifs.jl");
 
 ## Optimize
 
+include("Optimize.jl")
+
 prog = p["Baccalauréat en bio-informatique (B. Sc.)"]
 
 courses = getcourses(prog)
@@ -40,27 +42,19 @@ courses.pref .= 1.0
 preferences!(courses, "template.prefs")
 done!(courses, "template.done")
 
-# courses[courses.sigle .== :IFT3395, :pref] .= 10
-
 semester_schedules = [:A25, :H26, :A25, :H26, :A25, :H26]
 nb_s = length(semester_schedules)
 
-## Prepare decisions matrix (to take a section i at a semester j)
+## Prepare decision matrix (to take a section i at semester j)
 
 avail = DataFrame(s[row -> row.sigle ∈ courses.sigle])
 decision = combine(groupby(avail, [:sigle, :msection, :semester])) do df
     (; span = [reduce(vcat, df.span)])
 end
-# filter!(row -> isempty(row.span), decision)
 
 decision.credits = r[decision.sigle].credits
-# decision.req = r[decision.sigle].requirement_text
 nb_d = nrow(decision)
-# Move check_req as constraint # decision = decision[check_req.(decision.req, Ref(done)),:]
-
 nb_c = nrow(courses)
-c2d = [decision[j, :sigle] == courses[i, :sigle] for i=1:nb_c, j=1:nb_d]
-# before_v = [(courses[i] ∈ before) ? 1 : 0 for i in 1:nb_c, _=1:1]
 
 ## build_model
 using JuMP, Gurobi
@@ -69,6 +63,7 @@ model = Model(Gurobi.Optimizer)
 
 req = Reqs(model, courses);
 
+c2d = [decision[j, :sigle] == courses[i, :sigle] for i=1:nb_c, j=1:nb_d]
 @expression(model, doing, c2d * decision_var) # pool sections into courses
 @expression(model, done_before[i=1:nb_c, k=1:nb_s], courses.before[i] + ((k > 1) ? sum(doing[i, 1:(k-1)]) : 0))
 # @variable(model, done_before[1:nb_c, 1:nb_s], Bin)

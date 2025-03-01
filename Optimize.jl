@@ -1,71 +1,65 @@
-using JuMP, Gurobi
+module Optimizers
 
-function prepare_sections(p, r, s, prog, semester, done)
+# using JuMP, Gurobi
+using DataFrames
 
-    ## Prepare list of available sections
-    id = r[prog].id 
+using .Programs
 
-    function _can(row)
-        row.sigle ∈ id || return false
-        row.sigle ∉ done || return false
-        row.semester == semester || return false
-        length(row.span) ≥ 1 || return false
-        return true
+# Cheminement optimizer
+struct ChemOpt_1
+    prog::Program
+    courses::DataFrame
+    semester_schedules::Vector{Symbol}
+    decision::DataFrame
+end
+
+nb_s(o::ChemOpt_1) = length(o.semester_schedules)
+nb_d(o::ChemOpt_1) = nrow(o.decision)
+nb_c(o::ChemOpt_1) = nrow(o.courses)
+
+function preferences!(courses, fn::String)
+    f = open(fn, "r")
+    for line in readlines(f)
+        c, pref = strip.(split(line))
+        courses[courses.sigle .== Symbol(c), :pref] .= parse(Float32, pref)
+        # println(courses[courses.sigle .== Symbol(c), :])
     end
+end
 
-    avail = DataFrame(s[_can])
-    avail_sections = combine(groupby(avail, [:sigle, :msection])) do df
+function done!(courses, fn::String)
+    f = open(fn, "r")
+    for line in readlines(f)
+        c = strip(line)
+        courses[courses.sigle .== Symbol(c), :before] .= 1
+        # println(courses[courses.sigle .== Symbol(c), :])
+    end
+end
+
+function ChemOpt_1(prog::Program, semester_schedules::Vector{Symbol} = [:A25, :H26, :A25, :H26, :A25, :H26],
+                 pref_fn::Union{String, Nothing} = nothing,
+                 done_fn::Union{String, Nothing} = nothing)
+    courses = getcourses(prog)
+    courses.credits .= r[courses.sigle].credits
+    courses.req .= r[courses.sigle].requirement_text
+    courses.before .= 0
+    courses.pref .= 1.0
+
+    pref_fn ≠ nothing && preferences!(courses, pref_fn)
+    done_fn ≠ nothing && done!(courses, done_fn)
+
+    semester_schedules
+    nb_s = length(semester_schedules)
+
+    ## Prepare decision matrix (to take a section i at semester j)
+
+    avail = DataFrame(s[row -> row.sigle ∈ courses.sigle])
+    decision = combine(groupby(avail, [:sigle, :msection, :semester])) do df
         (; span = [reduce(vcat, df.span)])
     end
 
-    avail_sections.credits = r[avail_sections.sigle].credits
-    avail_sections.req = r[avail_sections.sigle].requirement_text
-    avail_sections[!,:pref] .= 1.0
-    avail_sections = avail_sections[check_req.(avail_sections.req, Ref(done)),:]
+    decision.credits = r[decision.sigle].credits
 
-    ## prefs (should come from file)
-    obl = vcat([b.courses for b in prog.segments[1].blocs]...)
-    transform!(avail_sections, [:sigle, :pref] => ByRow((s,p) -> (s ∈ obl) ? 5.0 : p) => :pref)
-    opt = vcat([b.courses for b in prog.segments[2].blocs]...)
-    transform!(avail_sections, [:sigle, :pref] => ByRow((s,p) -> (s ∈ opt) ? 3.0 : p) => :pref)
-    b02Y = vcat([bloc.courses for bloc in filter(x -> x.id == Symbol("Bloc 02Y"), prog.segments[2].blocs)]...)
-    transform!(avail_sections, [:sigle, :pref] => ByRow((s,p) -> (s ∈ b02Y) ? 1.0 : p) => :pref)
-
-    return avail_sections
+    return ChemOpt_1(prog, courses, semester_schedules, decision)
 end
 
-function build_model(avail_sections, done)
-    ## build model
-    model = Model(Gurobi.Optimizer)
-    avail_sections.var = @variable(model, sec_var[i=1:nrow(avail_sections)] ≥ 0, Bin)
-
-    # unique section per course
-    gdf = groupby(avail_sections, :sigle)
-    for k in keys(gdf)
-        sdf = gdf[k]
-        the_max = (k.sigle ∈ done) ? 0 : 1
-        nrow(sdf) < 2 && continue
-        @constraint(model, sum(sdf.var) ≤ the_max)
-    end
-
-    # schedule conflicts
-    for i in 1:nrow(avail_sections)
-        for j in (i+1):nrow(avail_sections)
-            if _conflict(avail_sections[i, :span], avail_sections[j, :span])
-                @constraint(model, avail_sections[i, :var] + avail_sections[j, :var] ≤ 1)
-            end
-        end
-    end
-
-    # max credits
-    @constraint(model, sum(avail_sections[:,:var] .* avail_sections[:,:credits]) ≤ 16)
-
-    @objective(model, Max, sum(sec_var .* avail_sections[:,:pref] .* avail_sections[:,:credits]))
-
-    set_optimizer_attribute(model, "PoolSearchMode", 2)  # Search for multiple solutions
-    set_optimizer_attribute(model, "PoolSolutions", 10)  # Limit to 10 solutions
-    optimize!(model)
-    # courses(model, prog)
-    return model, sec_var
 end
-
