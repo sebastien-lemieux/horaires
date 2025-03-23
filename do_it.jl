@@ -1,46 +1,39 @@
+include("Common.jl")
+include("Programs.jl")
+include("Masks.jl")
+include("Repertoires.jl")
+include("Requirements.jl")
+include("Spans.jl")
+include("Schedules.jl")
+include("MData.jl")
+include("Optimize.jl")
+include("utils.jl")
+using .Masks, .Programs, .Repertoires, .Requirements, .Schedules, .Common, .Spans, .MData
 
-include("Cheminements.jl")
+# opt = ChemOpt_1(prs, "Baccalauréat en bio-informatique (B. Sc.)")
 
-# include("utils.jl");
+data = Data("data.jld2");
 
-## Load or prepare data
-p, r, s = data();
-
-opt = ChemOpt_1(p["Baccalauréat en bio-informatique (B. Sc.)"], r, s)
-
-
-
-#####
-if isfile("data.jld2")
-    p, r, s = load("data.jld2", "p", "r", "s")
-else
-    p = ProgramCollection("https://planifium-api.onrender.com/api/v1/programs")
-    r = Repertoire("https://planifium-api.onrender.com/api/v1/courses")
-    s = Schedules("https://planifium-api.onrender.com/api/v1/schedules")
-    
-    save("data.jld2", Dict("p" => p, "r" => r, "s" => s))
-end;
 
 #Append to existing schedule (to get default schedule for courses out of program)
-academic_s = Schedules(["data/A25.csv", "data/H26.csv"], FromAcademicCSV)
-s = append!(s, academic_s)
+academic_s = ScheduleCollection(["data/A25.csv", "data/H26.csv"], FromAcademicCSV)
+merge(data, academic_s)
 
-include("modifs.jl");
+include("modifs.jl")
+modif!(data)
 
 ## Optimize
 
-include("Optimize.jl")
-
-prog = p["Baccalauréat en bio-informatique (B. Sc.)"]
+prog = data.p["Baccalauréat en bio-informatique (B. Sc.)"]
 
 courses = getcourses(prog)
-courses.credits .= r[courses.sigle].credits
-courses.req .= r[courses.sigle].requirement_text
+courses.credits .= data.r[courses.sigle].credits
+courses.req .= data.r[courses.sigle].requirement_text
 courses.before .= 0
 courses.pref .= 1.0
 
 preferences!(courses, "template.prefs")
-done!(courses, "template.done")
+done!(courses, "template.done") # ******************************
 
 semester_schedules = [:A25, :H26, :A25, :H26, :A25, :H26]
 nb_s = length(semester_schedules)

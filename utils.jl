@@ -1,9 +1,22 @@
-function doneby!(model, sigle, semester)
-    tmp_id = findfirst(sigle .== courses.sigle)
-    tmp_done_before = model[:done_before][tmp_id, semester]
-    tmp_doing = model[:doing][tmp_id, semester]
-    @constraint(model, tmp_done_before + tmp_doing ≥ 1)
+using NamedArrays
+
+function NamedMatrix(transf::F, path::AbstractString, ::Type{T}) where {F<:Function, T}
+    lines = readlines(path)
+    hdr = strip.(split(lines[1], ','))[1:end-1]
+    n = length(hdr)
+    A = Matrix{T}(undef, n, n)
+    rnames = Vector{String}(undef, n)
+    for (i, l) in enumerate(lines[2:n+1])
+        parts = strip.(split(l, ','))
+        println(parts[1:end-1])
+        A[i, :] = transf.(parts[1:end-1])
+        rnames[i] = parts[end]
+    end
+    NamedArray(A, (rnames, hdr), ("rows", "cols"))
 end
+
+# d = NamedMatrix(x -> ceil(Int, parse.(Float64, x)), "data/distances_finales.csv", Int)
+# d["bas_rampe", "haut_rampe"]
 
 function showsolution(model, semester_schedules, decision)
     choices = round.(Bool, value.(model[:decision_var]))
@@ -21,41 +34,12 @@ function getspan(decision, sigle, msection, semester)
     return res[1]
 end
 
-function conflictissues!(active_conflict, decision, s::Schedules)
-    active_conflict.v_issue .= value.(active_conflict.var) .≤ 0
-
-    for issue in eachrow(active_conflict[active_conflict.v_issue,:])
-        a_span = getspan(decision, issue.sigle_a, issue.msection_a, issue.schedule)
-        b_span = getspan(decision, issue.sigle_b, issue.msection_b, issue.schedule)
-        for (sa, sb) in conflict_expl(a_span, b_span)
-            function __string(i)
-                row = s.df[i.s_id, [:sigle, :msection, :volet, :semester]]
-                return "$(i.s_id)-$(row.sigle)($(row.msection)):$(row.volet)"
-            end
-            date_str = Dates.format(sb.s, "yyyy-mm-dd HH:MM")
-            println("$date_str:  $(__string(sa)) with $(__string(sb))")
-
-        end
-
+function preferences!(courses, fn::String)
+    f = open(fn, "r")
+    for line in readlines(f)
+        c, pref = strip.(split(line))
+        courses[courses.sigle .== Symbol(c), :pref] .= parse(Float32, pref)
+        # println(courses[courses.sigle .== Symbol(c), :])
     end
 end
 
-function reportblocs!(active_bloc)
-    active_bloc.v_min = value.(active_bloc.min)
-    active_bloc.v_max = value.(active_bloc.max)
-    active_bloc.v_credits = value.(active_bloc.credits)
-    active_bloc.b_min = [b.min for b in active_bloc.bloc]
-    active_bloc.b_max = [b.max for b in active_bloc.bloc]
-    active_bloc.id = [b.id for b in active_bloc.bloc]
-    active_bloc.name = [b.name for b in active_bloc.bloc]
-    active_bloc[:,[:id, :name, :b_min, :b_max, :v_credits]]
-end
-
-function preferences_template(courses, fn)
-    f = open(fn, "w")
-    o = sortperm(courses.sigle)
-    for i in o
-        println(f, "$(courses[i, "sigle"]) 1.0")
-    end
-    close(f)
-end

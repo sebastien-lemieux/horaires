@@ -5,7 +5,7 @@ using ..Masks
 using ..Common
 using ..Spans
 
-export ScheduleCollection
+export ScheduleCollection, merge
 
 # struct Schedules end
 
@@ -150,15 +150,14 @@ function ScheduleCollection(fn_v::Vector{String}, ::Type{FromAcademicCSV})
     end
 end
 
-function Base.append!(a::ScheduleCollection)
-    # academic_s = Schedules(["data/A25.csv", "data/H26.csv"], FromAcademicCSV)
-    df_a = copy(a.df)
-    # df_b = copy(b.df)
-    # cols = names(df_a) ∩ names(df_b)
-    # overwrite_c = unique(df_b.sigle)
-    # merged_s = vcat(subset(df_a, :sigle => ByRow(s -> s ∉ overwrite_c))[!,cols], df_b[!,cols])
-    # merged_s.row_id = 1:nrow(merged_s)
-    # return ScheduleCollection(merged_s)
+function Base.merge(a::ScheduleCollection, b::ScheduleCollection)
+    # a.df = copy(a.df)
+    # b.df = copy(b.df)
+    cols = names(a.df) ∩ names(b.df)
+    overwrite_c = unique(b.df.sigle)
+    merged_s = vcat(subset(a.df, :sigle => ByRow(s -> s ∉ overwrite_c))[!,cols], b.df[!,cols])
+    merged_s.row_id = 1:nrow(merged_s)
+    return ScheduleCollection(merged_s)
 end
 
 # s = Schedules("data/A25.csv", FromAcademicCSV)
