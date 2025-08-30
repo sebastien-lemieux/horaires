@@ -143,6 +143,44 @@ function ScheduleCollection(fn::String, ::Type{FromAcademicCSV})
     return ScheduleCollection(df)
 end
 
+using XLSX, DataFrames
+
+fn = "data/Horaire cours et examens_9290750.xlsx"
+
+# function ScheduleCollection(fn::String, ::Type{FromSynchroCSV})
+println("Loading from Synchro CSV...")
+
+raw = DataFrame(XLSX.readtable(fn, "Sheet1"; first_row=9, header=true))
+
+subset!(raw, "Statut" => state -> (state .== "Actif"))
+# subset!(raw, "Trame - Identifiant" => ByRow(trame -> (ismissing(trame) | (trame ≠ "2x2h\n2x2h"))))
+subset!(raw, "Jour" => ByRow(jour -> (!ismissing(jour))))
+
+function _semester(str::String)
+    tmp = ['A', 'H', 'P', 'E']
+    c = tmp[parse(Int, str[1])]
+    return Symbol("$c$(str[2:3])")
+end
+
+df = DataFrame()
+df.sigle = Symbol.(raw."Cours - Identifiant")
+df.section = [Symbol(str) for str in raw."Composante - Identifiant"]
+df.msection = [Symbol(str[1]) for str in raw."Composante - Identifiant"]
+df.volet = [Symbol(str) for str in raw."Type de composante - Identifiant"]
+df.jour = [acatosyn[str] for str in raw."Heures de la rencontre - Jour"]
+df.semester = _semester.(raw."Trimestre - Identifiant")
+df.row_id = 1:nrow(df)
+df.span = expand.(df.row_id, raw."Heures de la rencontre - Heure de début", raw."Heures de la rencontre - Heure de fin",
+                    raw."Dates et heures - Date de début", raw."Dates et heures - Date de fin", df.jour)
+
+# fixSched!(df)
+# schedules = Schedules(df)
+
+println("Done.")
+return ScheduleCollection(df)
+
+# end
+
 function ScheduleCollection(fn_v::Vector{String}, ::Type{FromAcademicCSV})
     all_s = [ScheduleCollection(fn, FromAcademicCSV) for fn in fn_v]
     reduce(all_s) do a, b
