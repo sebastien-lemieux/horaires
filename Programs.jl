@@ -64,24 +64,26 @@ struct ProgramCollection ## Turn into a Maskable (df for programs)
     name::Dict{String, Int}
 end
 
-function ProgramCollection(url::String, ::Type{FromPlanifium})
-    rsp = HTTP.get(url)
-    @assert(rsp.status == 200)
-    prs = JSON.parse(String(rsp.body))["programs"]
+# function ProgramCollection(url::String, ::Type{FromPlanifium})
+# rsp = HTTP.get(url)
+url = "https://planifium-api.onrender.com/api/v1/programs"
+rsp = HTTP.get("$url?include_courses_detail=true")
+@assert(rsp.status == 200)
+prs = JSON.parse(String(rsp.body))
 
-    progs = Program[]
-    id = Dict{Symbol, Int}()
-    name = Dict{String, Int}()
+progs = Program[]
+id = Dict{Symbol, Int}()
+name = Dict{String, Int}()
 
-    for prog_json in prs
-        prog = Program(prog_json)
-        push!(progs, prog)
-        id[prog.id] = length(progs)
-        name[prog.name] = length(progs)
-    end
-
-    return ProgramCollection(progs, id, name)
+for prog_json in prs
+    prog = Program(prog_json)
+    push!(progs, prog)
+    id[prog.id] = length(progs)
+    name[prog.name] = length(progs)
 end
+
+return ProgramCollection(progs, id, name)
+# end
 
 Base.getindex(p::ProgramCollection, index::Int) = p.progs[index]
 Base.getindex(p::ProgramCollection, sym::Symbol) = p.progs[p.id[sym]]

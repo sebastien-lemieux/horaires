@@ -1,6 +1,6 @@
 module Schedules
 
-using DataFrames, HTTP, JSON, JLD2, CSV, Dates
+using DataFrames, HTTP, JSON, JLD2, CSV, Dates, XLSX
 using ..Masks
 using ..Common
 using ..Spans
@@ -56,7 +56,7 @@ function _addtorow!(elem::Union{Real, AbstractString}, row_df=DataFrame(), path=
 end
 
 function fixSched!(df::DataFrame)
-    select!(df, Not(:sigle), :sigle => ByRow(Symbol) => :sigle; )
+    select!(df, Not(:sigle), :sigle => ByRow(Symbol) => :sigle)
     select!(df, Not(:name), :name => ByRow(Symbol) => :name)
     select!(df, Not(:_id), :_id => ByRow(Symbol) => :id)
     select!(df, Not(:sections_name), :sections_name => ByRow(Symbol) => :section)
@@ -143,46 +143,52 @@ function ScheduleCollection(fn::String, ::Type{FromAcademicCSV})
     return ScheduleCollection(df)
 end
 
-using XLSX, DataFrames
+## From Synchro CSV (6 files)
+function ScheduleCollection(fn::String, ::Type{FromSynchroCSV})
+    println("Loading from Synchro CSV [$fn]...")
 
-fn = "data/Horaire cours et examens_9290750.xlsx"
+    raw = DataFrame(XLSX.readtable(fn, "Sheet1"; first_row=9, header=true))
 
-# function ScheduleCollection(fn::String, ::Type{FromSynchroCSV})
-println("Loading from Synchro CSV...")
+    subset!(raw, "Statut" => state -> (state .== "Actif"))
+    subset!(raw, "Jour" => ByRow(jour -> (!ismissing(jour) && length(jour) == 2)))
+    subset!(raw, "De" => ByRow(de -> (!ismissing(de))))
+    subset!(raw, "A" => ByRow(a -> (!ismissing(a))))
+    subset!(raw, "Du" => ByRow(du -> (!ismissing(du))))
+    subset!(raw, "Au" => ByRow(au -> (!ismissing(au))))
 
-raw = DataFrame(XLSX.readtable(fn, "Sheet1"; first_row=9, header=true))
+    function _semester(raw::DataFrame)
+        d = [Date.(raw.Du); Date.(raw.Au)] |> sort
+        med = d[length(d) ÷ 2]
+        y = year(med)
+        c = "-"
+        if med > Date(y, 01, 01) && med < Date(y, 04, 30)
+            c = "H"
+        elseif med > Date(y, 05, 01) && med < Date(y, 08, 31)
+            c = "E"
+        elseif med > Date(y, 09, 01) && med < Date(y, 12, 31)
+            c = "H"
+        end
+        
+        return Symbol("$c$(y % 100)")
+    end
 
-subset!(raw, "Statut" => state -> (state .== "Actif"))
-# subset!(raw, "Trame - Identifiant" => ByRow(trame -> (ismissing(trame) | (trame ≠ "2x2h\n2x2h"))))
-subset!(raw, "Jour" => ByRow(jour -> (!ismissing(jour))))
+    df = DataFrame()
+    df.sigle = Symbol.(raw[!, "Mat."] .* raw[!, "Num. rép."])
+    df.name = Symbol.(raw.Titre)
+    df.section = [Symbol(str) for str in raw."Sect."]
+    df.msection = [Symbol(str[1]) for str in raw."Sect."]
+    df.volet = [Symbol(str) for str in raw."Volet"]
+    df.jour = [Symbol.(str) for str in raw.Jour]
+    df.semester .= _semester(raw)
+    df.row_id = 1:nrow(df)
+    df.span = expand.(df.row_id, raw."De", raw."A", raw."Du", raw."Au", df.jour)
 
-function _semester(str::String)
-    tmp = ['A', 'H', 'P', 'E']
-    c = tmp[parse(Int, str[1])]
-    return Symbol("$c$(str[2:3])")
+    println("Done.")
+    return ScheduleCollection(df)
 end
 
-df = DataFrame()
-df.sigle = Symbol.(raw."Cours - Identifiant")
-df.section = [Symbol(str) for str in raw."Composante - Identifiant"]
-df.msection = [Symbol(str[1]) for str in raw."Composante - Identifiant"]
-df.volet = [Symbol(str) for str in raw."Type de composante - Identifiant"]
-df.jour = [acatosyn[str] for str in raw."Heures de la rencontre - Jour"]
-df.semester = _semester.(raw."Trimestre - Identifiant")
-df.row_id = 1:nrow(df)
-df.span = expand.(df.row_id, raw."Heures de la rencontre - Heure de début", raw."Heures de la rencontre - Heure de fin",
-                    raw."Dates et heures - Date de début", raw."Dates et heures - Date de fin", df.jour)
-
-# fixSched!(df)
-# schedules = Schedules(df)
-
-println("Done.")
-return ScheduleCollection(df)
-
-# end
-
-function ScheduleCollection(fn_v::Vector{String}, ::Type{FromAcademicCSV})
-    all_s = [ScheduleCollection(fn, FromAcademicCSV) for fn in fn_v]
+function ScheduleCollection(fn_v::Vector{String}, t::T) where T <: Union{Type{FromAcademicCSV}, Type{FromPlanifium}, Type{FromSynchroCSV}}
+    all_s = [ScheduleCollection(fn, t) for fn in fn_v]
     reduce(all_s) do a, b
         ScheduleCollection(vcat(a.df, b.df))
     end

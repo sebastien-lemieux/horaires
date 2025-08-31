@@ -12,8 +12,7 @@ using .Masks, .Programs, .Repertoires, .Requirements, .Schedules, .Common, .Span
 
 # opt = ChemOpt_1(prs, "Baccalauréat en bio-informatique (B. Sc.)")
 
-data = Data("data.jld2");
-
+data = Data("data.jld2", "Horaires_20250829");
 
 #Append to existing schedule (to get default schedule for courses out of program)
 academic_s = ScheduleCollection(["data/A25.csv", "data/H26.csv"], FromAcademicCSV)
