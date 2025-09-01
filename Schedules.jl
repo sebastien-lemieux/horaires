@@ -166,7 +166,7 @@ function ScheduleCollection(fn::String, ::Type{FromSynchroCSV})
         elseif med > Date(y, 05, 01) && med < Date(y, 08, 31)
             c = "E"
         elseif med > Date(y, 09, 01) && med < Date(y, 12, 31)
-            c = "H"
+            c = "A"
         end
         
         return Symbol("$c$(y % 100)")

@@ -9,17 +9,22 @@ include("MData.jl")
 include("Optimize.jl")
 include("utils.jl")
 using .Masks, .Programs, .Repertoires, .Requirements, .Schedules, .Common, .Spans, .MData
+using CSV, DataFrames
 
 # opt = ChemOpt_1(prs, "Baccalauréat en bio-informatique (B. Sc.)")
 
-data = Data("data.jld2", "Horaires_20250829");
+data = Data("data/data.jld2", "data/Horaires_20250829");
 
 #Append to existing schedule (to get default schedule for courses out of program)
-academic_s = ScheduleCollection(["data/A25.csv", "data/H26.csv"], FromAcademicCSV)
-merge(data, academic_s)
+# # academic_s = ScheduleCollection(["data/A25.csv", "data/H26.csv"], FromAcademicCSV)
+# merge(data, academic_s)
+
+# Horaire synchro
+# synchro_s = ScheduleCollection(readdir("data/Horaires_20250829", join=true), FromSynchroCSV)
+# save("data/data.jld2", Dict("p" => data.p, "r" => data.r, "s" => synchro_s))
 
 include("modifs.jl")
-modif!(data)
+# modif!(data)
 
 ## Optimize
 
@@ -28,23 +33,24 @@ prog = data.p["Baccalauréat en bio-informatique (B. Sc.)"]
 courses = getcourses(prog)
 courses.credits .= data.r[courses.sigle].credits
 courses.req .= data.r[courses.sigle].requirement_text
-courses.before .= 0
-courses.pref .= 1.0
 
-preferences!(courses, "template.prefs")
-done!(courses, "template.done") # ******************************
+# preferences!(courses, "template.prefs")
+# done!(courses, "template.done") # ******************************
 
-semester_schedules = [:A25, :H26, :A25, :H26, :A25, :H26]
+prefs = CSV.File("preferences.csv"; types=[Symbol, Int, Float32], strict=true) |> DataFrame
+courses = innerjoin(courses, prefs, on=:sigle, matchmissing=:error, validate=(true, true))
+
+semester_schedules = [:A25, :H26, :E26, :A25]
 nb_s = length(semester_schedules)
 
 ## Prepare decision matrix (to take a section i at semester j)
 
-avail = DataFrame(s[row -> row.sigle ∈ courses.sigle])
+avail = DataFrame(data.s[row -> row.sigle ∈ courses.sigle])
 decision = combine(groupby(avail, [:sigle, :msection, :semester])) do df
     (; span = [reduce(vcat, df.span)])
 end
 
-decision.credits = r[decision.sigle].credits
+decision.credits = data.r[decision.sigle].credits
 nb_d = nrow(decision)
 nb_c = nrow(courses)
 
@@ -53,23 +59,11 @@ using JuMP, Gurobi
 model = Model(Gurobi.Optimizer)
 @variable(model, decision_var[i=1:nb_d, j=1:nb_s] ≥ 0, Bin)
 
-req = Reqs(model, courses);
+req = ReqCollection(model, courses);
 
 c2d = [decision[j, :sigle] == courses[i, :sigle] for i=1:nb_c, j=1:nb_d]
 @expression(model, doing, c2d * decision_var) # pool sections into courses
 @expression(model, done_before[i=1:nb_c, k=1:nb_s], courses.before[i] + ((k > 1) ? sum(doing[i, 1:(k-1)]) : 0))
-# @variable(model, done_before[1:nb_c, 1:nb_s], Bin)
-# @constraint(model, [i=1:nb_c], done_before[i, 1] >= courses.before[i]) #+ courses[i,:before] ≤ 1) # Courses need to be done once at most
-
-# for i in 1:nb_c, k in 2:nb_s
-#     # for j in 1:(k-1)
-#     #     @constraint(model, done_before[i, k] ≥ done_before[i, j])
-#     # end
-#     @constraint(model, [i=1:nb_c], done_before[i, k] >= done_before[i, k-1])
-#     # @constraint(model, done_before[i, k] ≤ doing[i, k])
-# end
-
-# @constraint(model, [i=1:nb_c], sum(doing[i,:]) + courses[i,:before] ≤ 1) # Courses need to be done once at most
 
 # schedule conflicts
 active_conflict = DataFrame(sigle_a=Symbol[], msection_a=Symbol[], sigle_b=Symbol[], msection_b=Symbol[], semester=Int[], schedule=Symbol[], var=VariableRef[])
@@ -96,9 +90,9 @@ end
 # max credits and prog. objective
 @expression(model, done , sum(doing, dims=2) .+ courses.before)
 @constraint(model, [i=1:nb_c], done[i] ≤ 1)
-@constraint(model, [k=1:nb_s], sum(decision_var[:,k] .* decision[:,:credits]) ≤ 15)
-@constraint(model, [k=1:(nb_s-1)], sum(decision_var[:,k] .* decision[:,:credits]) ≥ 15)
-@constraint(model, sum(done .* courses[:,:credits]) ≥ 90)
+@constraint(model, [k=1:nb_s], sum(decision_var[:,k] .* decision[:,:credits]) ≤ 18) # 15)
+# @constraint(model, [k=1:(nb_s-1)], sum(decision_var[:,k] .* decision[:,:credits]) ≥ 15)
+@constraint(model, sum(done .* courses[:,:credits]) ≥ 84) # 90) # 
 # @constraint(model, sum(done .* courses[:,:credits]) ≥ 29)
 # @constraint(model, sum(done .* courses[:,:credits]) ≤ 91)
 
@@ -124,15 +118,15 @@ for segment in prog.segments
 end
 
 
-# prereq
+# prereq ## add indicator var
 
 req_var = Matrix{Any}(nothing, nb_c, nb_s)
 JuMP.value(x::Nothing) = 1.0
 for c = 1:nb_c
-    expr = to_expr(req, c)
+    expr = Requirements.to_expr(req, c)
     isnothing(expr) && continue
     for k = 1:nb_s
-        req_var[c, k] = gen(req, expr, k)
+        req_var[c, k] = Requirements.gen(req, expr, k)
         @constraint(model, doing[c, k] ≤ req_var[c, k])
     end
 end
@@ -145,33 +139,34 @@ function forced!(sigle, semester)
     @constraint(model, tmp_doing + tmp_done_before ≥ 1)
 end
 
-forced!(:BIN1002, 1)
-forced!(:IFT1015, 1)
-forced!(:BCM1501, 1)
-forced!(:IFT1065, 2)
-forced!(:IFT1025, 2)
-forced!(:BCM1503, 2)
-# doneby!(model, :IFT2015, 3)
-# doneby!(model, :BCM2550, 3)
-# doneby!(model, :BCM2003, 4)
-# doneby!(model, :BIN3002, 5)
-# doneby!(model, :BIN3005, 5)
+# forced!(:BIN1002, 1)
+# forced!(:IFT1015, 1)
+# forced!(:BCM1501, 1)
+# forced!(:IFT1065, 2)
+# forced!(:IFT1025, 2)
+# forced!(:BCM1503, 2)
+# # doneby!(model, :IFT2015, 3)
+# # doneby!(model, :BCM2550, 3)
+# # doneby!(model, :BCM2003, 4)
+# # doneby!(model, :BIN3002, 5)
+# # doneby!(model, :BIN3005, 5)
 
 # Objective & optimization
-pref = reshape(courses.pref, :, 1)
-big = 1000.0
-@objective(model, Max, sum(doing .* courses[:,:pref]) 
-                       + big * sum(active_conflict.var)
-                       + big * sum(active_bloc.min)
-                       + big * sum(active_bloc.max)
-                       + 50 * (90 - sum(done .* courses[:,:credits]))
+# pref = reshape(courses.pref, :, 1)
+big = -10000.0
+@objective(model, Max, sum(doing .* courses[:,:pref])
+                       + big * sum(1 .- active_conflict.var)
+                       + big * sum(1 .- active_bloc.min)
+                       + big * sum(1 .- active_bloc.max)
+                    #    + 50 * (90 - sum(done .* courses[:,:credits]))
+                       + 5 * sum(done .* courses[:,:credits])
             )
 
 ## Basic ##
 
-# optimize!(model)
+optimize!(model)
 
-# showsolution(model, semester_schedules, decision)
+showsolution(model, semester_schedules, decision)
 # conflictissues!(active_conflict, decision, s)
 
 # # Report blocs
@@ -197,18 +192,13 @@ while feasible
     println("Found solution #$solutions_found:")
 
     # Retrieve current solution values
-    sol = value.(decision_var)
-    # println("x = ", sol)
-    choices = String[]
-    for i=1:nb_d
-        sol[i,1] ≈ 1.0 && push!(choices, "$(decision[i, :sigle]):$(decision[i, :msection])")
-    end
-    println(join(sort(choices), ", "))
+    showsolution(model, semester_schedules, decision)
 
     # Build the 'exclusion constraint'
     # sum_{j : sol[j] == 1}(1 - x[j]) + sum_{j : sol[j] == 0}(x[j]) >= 1
-    expr = @expression(model, sum((1 - decision_var[i, k]) for k=1:1, i=1:nb_d if sol[i, k] ≈ 1) +
-                                 sum(decision_var[i, k] for k=1:1, i=1:nb_d if sol[i, k] ≈ 0))
+    sol = value(decision_var)
+    expr = @expression(model, sum((1 - decision_var[i, k]) for k=1:nb_s, i=1:nb_d if sol[i, k] ≈ 1) +
+                                 sum(decision_var[i, k] for k=1:nb_s, i=1:nb_d if sol[i, k] ≈ 0))
     @constraint(model, expr ≥ 1)
 end
 

@@ -2,7 +2,7 @@ module Spans
 
 using Dates
 
-export expand, acatosyn
+export expand, acatosyn, _conflict
 
 const idtoday = [:Lu, :Ma, :Me, :Je, :Ve, :Sa, :De]
 const daytoid = Dict(idtoday .=> 1:length(idtoday))

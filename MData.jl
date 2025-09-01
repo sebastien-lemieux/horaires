@@ -22,7 +22,7 @@ function Data(fn, horaire)
     else
         p = ProgramCollection("https://planifium-api.onrender.com/api/v1/programs", FromPlanifium)
         r = Repertoire("https://planifium-api.onrender.com/api/v1/courses")
-        s = ScheduleCollection(readdir("data/$horaire"), FromSynchroCSV)
+        s = ScheduleCollection(readdir(horaire), FromSynchroCSV)
         
         save(fn, Dict("p" => p, "r" => r, "s" => s))
     end
