@@ -52,7 +52,7 @@ function Program(program_json)
     segments = [json_to_segment(segment) for segment in program_json["segments"]]
     Program(
         program_json["name"],
-        Symbol(program_json["_id"]),
+        Symbol(program_json["id"]),
         segments,
         program_json["structure"]
     )

@@ -181,6 +181,7 @@ function ScheduleCollection(fn::String, ::Type{FromSynchroCSV})
     df.jour = [Symbol.(str) for str in raw.Jour]
     df.semester .= _semester(raw)
     df.row_id = 1:nrow(df)
+    df.imm = Symbol.(raw[!, "Imm."])
     df.span = expand.(df.row_id, raw."De", raw."A", raw."Du", raw."Au", df.jour)
 
     println("Done.")

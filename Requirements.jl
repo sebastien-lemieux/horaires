@@ -2,9 +2,9 @@ module Requirements
 
 # req = filter(s -> match.(r"prerequisite_courses.*(et|ou)"i, s) ≠ nothing, vcat(split.(decision.req, "\n")...))
 
-using Random, JuMP, DataFrames, to_expr
+using Random, JuMP, DataFrames
 
-export ReqCollection
+export ReqCollection, to_expr
 
 struct ReqCollection
     model::Model # has var: doing[,] and done_before[,]

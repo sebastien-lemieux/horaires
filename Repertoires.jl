@@ -16,7 +16,7 @@ Repertoire(m::Mask{Repertoire}) = Repertoire(DataFrame(m))
 
 function push_course!(df::DataFrame, crs::Dict{String, Any})
     course_data = Dict{Symbol, Any}()
-    course_data[:id] = Symbol(crs["_id"])
+    course_data[:id] = Symbol(crs["id"])
     
     course_data[:name] = crs["name"]
     course_data[:description] = crs["description"]
@@ -37,7 +37,7 @@ function push_course!(df::DataFrame, crs::Dict{String, Any})
 end
 
 function Repertoire(url::String)
-    rsp = HTTP.get(url)
+    rsp = HTTP.get("$url?response_level=full")
     @assert(rsp.status == 200)
     crs = JSON.parse(String(rsp.body))
     df = DataFrame(id=Symbol[], name=String[], description=String[], requirement_text=String[], credits=Float32[], winter=Bool[], summer=Bool[], autumn=Bool[], daytime=Bool[], evening=Bool[])

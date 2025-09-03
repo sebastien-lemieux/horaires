@@ -11,20 +11,7 @@ include("utils.jl")
 using .Masks, .Programs, .Repertoires, .Requirements, .Schedules, .Common, .Spans, .MData
 using CSV, DataFrames
 
-# opt = ChemOpt_1(prs, "Baccalauréat en bio-informatique (B. Sc.)")
-
 data = Data("data/data.jld2", "data/Horaires_20250829");
-
-#Append to existing schedule (to get default schedule for courses out of program)
-# # academic_s = ScheduleCollection(["data/A25.csv", "data/H26.csv"], FromAcademicCSV)
-# merge(data, academic_s)
-
-# Horaire synchro
-# synchro_s = ScheduleCollection(readdir("data/Horaires_20250829", join=true), FromSynchroCSV)
-# save("data/data.jld2", Dict("p" => data.p, "r" => data.r, "s" => synchro_s))
-
-include("modifs.jl")
-# modif!(data)
 
 ## Optimize
 
