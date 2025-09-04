@@ -9,11 +9,11 @@ include("MData.jl")
 include("Optimize.jl")
 include("utils.jl")
 using .Masks, .Programs, .Repertoires, .Requirements, .Schedules, .Common, .Spans, .MData
-using CSV, DataFrames
+using CSV, DataFrames, Dates
 
 data = Data("data/data.jld2", "data/Horaires_20250829");
 
-## Optimize
+## Prepare optimization data
 
 prog = data.p["Baccalauréat en bio-informatique (B. Sc.)"]
 
@@ -21,16 +21,29 @@ courses = getcourses(prog)
 courses.credits .= data.r[courses.sigle].credits
 courses.req .= data.r[courses.sigle].requirement_text
 
-# preferences!(courses, "template.prefs")
-# done!(courses, "template.done") # ******************************
-
 prefs = CSV.File("preferences.csv"; types=[Symbol, Int, Float32], strict=true) |> DataFrame
 courses = innerjoin(courses, prefs, on=:sigle, matchmissing=:error, validate=(true, true))
 
 semester_schedules = [:A25, :H26, :E26, :A25]
 nb_s = length(semester_schedules)
 
-## Prepare decision matrix (to take a section i at semester j)
+## Test junk:
+
+# s = Schedules.ScheduleCollection(readdir("data/Horaires_20250829", join=true), FromSynchroCSV)
+
+sp_a = vcat((data.s[:sigle, :IFT1215] & data.s[:msection, :B] & data.s[:semester, :A25])[:span]...)
+sp_b = vcat((data.s[:sigle, :BCM1501] & data.s[:semester, :A25])[:span]...)
+
+for a in sp_a, b in sp_b
+    # println("$a $b")
+    d = max(Minute(0), getdist(data.s, a, b) - Minute(10))
+    _conflict(a, b, Minute(0)) && println("Conflict between: $a $b")
+    _conflict(a, b, getdist(data.s, a, b)) && println("Distance conflict between: $a $b")
+    # println("distance:$d")
+end
+Spans.conflict_expl(sp_a, sp_b, Minute(0))
+
+## decision:  (to take a section i at semester j)
 
 avail = DataFrame(data.s[row -> row.sigle ∈ courses.sigle])
 decision = combine(groupby(avail, [:sigle, :msection, :semester])) do df

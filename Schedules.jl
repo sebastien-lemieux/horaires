@@ -5,55 +5,57 @@ using ..Masks
 using ..Common
 using ..Spans
 
-export ScheduleCollection, merge
+export ScheduleCollection, getdist # , merge
 
 # struct Schedules end
 
 struct ScheduleCollection <: AbstractMaskable
     df::DataFrame
+    pav::Dict{Symbol, Int}
+    dist_m::Matrix{Int}
 end
 
 ## Parsing JSON
 
-function _addtorow!(d::Dict{String, Any}, row_df=DataFrame(), path=String[])
-    for (k, v) in d
-        row_df = _addtorow!(v, row_df, [path; k])
-    end
-    return row_df
-end
+# function _addtorow!(d::Dict{String, Any}, row_df=DataFrame(), path=String[])
+#     for (k, v) in d
+#         row_df = _addtorow!(v, row_df, [path; k])
+#     end
+#     return row_df
+# end
 
-function _addtorow!(v::Vector{Any}, row_df=DataFrame(), path=String[])::DataFrame
-    res = DataFrame[]
-    for (i, item) in enumerate(v)
-        push!(res, _addtorow!(item, deepcopy(row_df), path))
-    end
-    if length(res) == 0
-        # println("path=$path")
-        if path == ["sections", "teachers"]
-            row_df = _addtorow!("", row_df, path)
-        end
-        if path == ["sections", "volets", "activities", "days"]
-            row_df = _addtorow!("", row_df, path)
-        end
-        return row_df
-    else
-        return vcat(res...)
-    end
-end
+# function _addtorow!(v::Vector{Any}, row_df=DataFrame(), path=String[])::DataFrame
+#     res = DataFrame[]
+#     for (i, item) in enumerate(v)
+#         push!(res, _addtorow!(item, deepcopy(row_df), path))
+#     end
+#     if length(res) == 0
+#         # println("path=$path")
+#         if path == ["sections", "teachers"]
+#             row_df = _addtorow!("", row_df, path)
+#         end
+#         if path == ["sections", "volets", "activities", "days"]
+#             row_df = _addtorow!("", row_df, path)
+#         end
+#         return row_df
+#     else
+#         return vcat(res...)
+#     end
+# end
 
-function _addtorow!(elem::Union{Real, AbstractString}, row_df=DataFrame(), path=String[])
-    col_name = Symbol(join(path, "_"))
-    # println("col_name: [$col_name] -> $elem")
-    # println(row_df)
-    if nrow(row_df) == 0
-        setproperty!(row_df, col_name, [elem])
-    else
-        # setproperty!(row_df, col_name, [elem])  # [:, col_name] .= [elem]
-        # setindex!(row_df, [elem], :, col_name)
-        row_df[:, col_name] .= elem
-    end
-    return row_df
-end
+# function _addtorow!(elem::Union{Real, AbstractString}, row_df=DataFrame(), path=String[])
+#     col_name = Symbol(join(path, "_"))
+#     # println("col_name: [$col_name] -> $elem")
+#     # println(row_df)
+#     if nrow(row_df) == 0
+#         setproperty!(row_df, col_name, [elem])
+#     else
+#         # setproperty!(row_df, col_name, [elem])  # [:, col_name] .= [elem]
+#         # setindex!(row_df, [elem], :, col_name)
+#         row_df[:, col_name] .= elem
+#     end
+#     return row_df
+# end
 
 function fixSched!(df::DataFrame)
     select!(df, Not(:sigle), :sigle => ByRow(Symbol) => :sigle)
@@ -90,60 +92,77 @@ end
 
 ## Load from...
 
-function ScheduleCollection(url::String, ::Type{FromPlanifium})
-    println("Loading from API...")
-    rsp = HTTP.get(url)
-    @assert(rsp.status == 200)
-
-    println("Parsing JSON to Julia...")
-    crs = JSON.parse(String(rsp.body))
-
-    println("Building Schedules table...")
-    df = _addtorow!(crs)
-    # return df
-    fixSched!(df)
-    schedules = ScheduleCollection(df)
-
-    println("Done.")
-    return schedules
+function loadDistances(fn)
+    df = DataFrame(CSV.File(fn))
+    pav_v = Symbol.(df[!,end])
+    
+    pav = Dict([p => i for (i,p) in enumerate(pav_v)])
+    dist_m = Matrix{Int}(ceil.(Int, df[!, 1:end-1]))
+    
+    return pav, dist_m
 end
+
+function getdist(s::ScheduleCollection, a::Symbol, b::Symbol)
+    (a == :missing || b == :missing) && return Minute(0)
+    return Minute(s.dist_m[s.pav[a], s.pav[b]])
+end
+
+getdist(s::ScheduleCollection, a::Span, b::Span) = getdist(s, a.imm, b.imm)
+
+# function ScheduleCollection(url::String, ::Type{FromPlanifium})
+#     println("Loading from API...")
+#     rsp = HTTP.get(url)
+#     @assert(rsp.status == 200)
+
+#     println("Parsing JSON to Julia...")
+#     crs = JSON.parse(String(rsp.body))
+
+#     println("Building Schedules table...")
+#     df = _addtorow!(crs)
+#     # return df
+#     fixSched!(df)
+#     schedules = ScheduleCollection(df)
+
+#     println("Done.")
+#     return schedules
+# end
 
 # s = Schedules("https://planifium-api.onrender.com/api/v1/schedules", FromPlanifium)
 
 
-function ScheduleCollection(fn::String, ::Type{FromAcademicCSV})
-    println("Loading from CSV...")
+# function ScheduleCollection(fn::String, ::Type{FromAcademicCSV})
+#     println("Loading from CSV...")
 
-    raw = DataFrame(CSV.File(fn, types=String))
-    subset!(raw, "Composante - État" => state -> (state .== "Activé"))
-    subset!(raw, "Trame - Identifiant" => ByRow(trame -> (ismissing(trame) | (trame ≠ "2x2h\n2x2h"))))
-    subset!(raw, "Heures de la rencontre - Jour" => ByRow(jour -> (!ismissing(jour))))
+#     raw = DataFrame(CSV.File(fn, types=String))
+#     subset!(raw, "Composante - État" => state -> (state .== "Activé"))
+#     subset!(raw, "Trame - Identifiant" => ByRow(trame -> (ismissing(trame) | (trame ≠ "2x2h\n2x2h"))))
+#     subset!(raw, "Heures de la rencontre - Jour" => ByRow(jour -> (!ismissing(jour))))
     
-    function _semester(str::String)
-        tmp = ['H', 'P', 'E', 'A']
-        c = tmp[parse(Int, str[4])]
-        return Symbol("$c$(str[2:3])")
-    end
+#     function _semester(str::String)
+#         tmp = ['H', 'P', 'E', 'A']
+#         c = tmp[parse(Int, str[4])]
+#         return Symbol("$c$(str[2:3])")
+#     end
     
-    df = DataFrame()
-    df.sigle = Symbol.(raw."Cours - Identifiant")
-    df.section = [Symbol(str) for str in raw."Composante - Identifiant"]
-    df.msection = [Symbol(str[1]) for str in raw."Composante - Identifiant"]
-    df.volet = [Symbol(str) for str in raw."Type de composante - Identifiant"]
-    df.jour = [acatosyn[str] for str in raw."Heures de la rencontre - Jour"]
-    df.semester = _semester.(raw."Trimestre - Identifiant")
-    df.row_id = 1:nrow(df)
-    df.span = expand.(df.row_id, raw."Heures de la rencontre - Heure de début", raw."Heures de la rencontre - Heure de fin",
-                      raw."Dates et heures - Date de début", raw."Dates et heures - Date de fin", df.jour)
+#     df = DataFrame()
+#     df.sigle = Symbol.(raw."Cours - Identifiant")
+#     df.section = [Symbol(str) for str in raw."Composante - Identifiant"]
+#     df.msection = [Symbol(str[1]) for str in raw."Composante - Identifiant"]
+#     df.volet = [Symbol(str) for str in raw."Type de composante - Identifiant"]
+#     df.jour = [acatosyn[str] for str in raw."Heures de la rencontre - Jour"]
+#     df.semester = _semester.(raw."Trimestre - Identifiant")
+#     df.row_id = 1:nrow(df)
+#     df.span = expand.(df.row_id, raw."Heures de la rencontre - Heure de début", raw."Heures de la rencontre - Heure de fin",
+#                       raw."Dates et heures - Date de début", raw."Dates et heures - Date de fin", df.jour)
     
-    # fixSched!(df)
-    # schedules = Schedules(df)
+#     # fixSched!(df)
+#     # schedules = Schedules(df)
 
-    println("Done.")
-    return ScheduleCollection(df)
-end
+#     println("Done.")
+#     return ScheduleCollection(df)
+# end
 
-## From Synchro CSV (6 files)
+## From Synchro CSV
 function ScheduleCollection(fn::String, ::Type{FromSynchroCSV})
     println("Loading from Synchro CSV [$fn]...")
 
@@ -182,28 +201,30 @@ function ScheduleCollection(fn::String, ::Type{FromSynchroCSV})
     df.semester .= _semester(raw)
     df.row_id = 1:nrow(df)
     df.imm = Symbol.(raw[!, "Imm."])
-    df.span = expand.(df.row_id, raw."De", raw."A", raw."Du", raw."Au", df.jour)
+    df.span = expand.(df.row_id, df.imm, raw."De", raw."A", raw."Du", raw."Au", df.jour)
 
     println("Done.")
-    return ScheduleCollection(df)
+    return ScheduleCollection(df, loadDistances("distances.csv")...)
 end
 
+## Not tested for other sources aside from Synchro
 function ScheduleCollection(fn_v::Vector{String}, t::T) where T <: Union{Type{FromAcademicCSV}, Type{FromPlanifium}, Type{FromSynchroCSV}}
     all_s = [ScheduleCollection(fn, t) for fn in fn_v]
     reduce(all_s) do a, b
-        ScheduleCollection(vcat(a.df, b.df))
+        ScheduleCollection(vcat(a.df, b.df), a.pav, a.dist_m)
     end
 end
 
-function Base.merge(a::ScheduleCollection, b::ScheduleCollection)
-    # a.df = copy(a.df)
-    # b.df = copy(b.df)
-    cols = names(a.df) ∩ names(b.df)
-    overwrite_c = unique(b.df.sigle)
-    merged_s = vcat(subset(a.df, :sigle => ByRow(s -> s ∉ overwrite_c))[!,cols], b.df[!,cols])
-    merged_s.row_id = 1:nrow(merged_s)
-    return ScheduleCollection(merged_s)
-end
+## Not sure why this is necessary? Merging synchro with academic maybe?
+# function Base.merge(a::ScheduleCollection, b::ScheduleCollection)
+#     # a.df = copy(a.df)
+#     # b.df = copy(b.df)
+#     cols = names(a.df) ∩ names(b.df)
+#     overwrite_c = unique(b.df.sigle)
+#     merged_s = vcat(subset(a.df, :sigle => ByRow(s -> s ∉ overwrite_c))[!,cols], b.df[!,cols])
+#     merged_s.row_id = 1:nrow(merged_s)
+#     return ScheduleCollection(merged_s)
+# end
 
 # s = Schedules("data/A25.csv", FromAcademicCSV)
 
