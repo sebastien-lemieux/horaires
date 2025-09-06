@@ -103,11 +103,36 @@ function loadDistances(fn)
 end
 
 function getdist(s::ScheduleCollection, a::Symbol, b::Symbol)
-    (a == :missing || b == :missing) && return Minute(0)
+    skip = [:missing, :VIRTUEL, :HJL]
+    (a ∈ skip || b ∈ skip) && return Minute(0)
+    (a ∈ skip || b ∈ skip) && return Minute(0)
     return Minute(s.dist_m[s.pav[a], s.pav[b]])
 end
 
 getdist(s::ScheduleCollection, a::Span, b::Span) = getdist(s, a.imm, b.imm)
+
+function _semester!(raw::DataFrame)
+    raw.du_d = Date.(raw.Du)
+    raw.au_d = Date.(raw.Au)
+    
+    out = Symbol[]
+    for row in eachrow(raw)
+        d = row.du_d + (row.au_d - row.du_d) ÷ 2 # [Date.(raw.Du); Date.(raw.Au)] |> sort
+        y = year(d)
+        if d ≥ Date(y, 01, 01) && d ≤ Date(y, 04, 30)
+            c = "H"
+        elseif d ≥ Date(y, 05, 01) && d ≤ Date(y, 08, 31)
+            c = "E"
+        elseif d ≥ Date(y, 09, 01) && d ≤ Date(y, 12, 31)
+            c = "A"
+        else
+            c = "-"
+        end
+        push!(out, Symbol("$c$(y % 100)"))
+    end
+    
+    raw.semester = out
+end
 
 # function ScheduleCollection(url::String, ::Type{FromPlanifium})
 #     println("Loading from API...")
@@ -168,28 +193,22 @@ function ScheduleCollection(fn::String, ::Type{FromSynchroCSV})
 
     raw = DataFrame(XLSX.readtable(fn, "Sheet1"; first_row=9, header=true))
 
+    o = raw[!,"Mat."] .== "BIN" .&& raw[!,"Num. rép."] .== "3005"
+    if any(o)
+        raw[o,"Jour"] .= "Lu"
+        raw[o,"Du"] .= "2025-10-01"
+        raw[o,"Au"] .= "2025-10-05"
+        raw[o, "Imm."] .= "511C"
+    end
+    
     subset!(raw, "Statut" => state -> (state .== "Actif"))
     subset!(raw, "Jour" => ByRow(jour -> (!ismissing(jour) && length(jour) == 2)))
     subset!(raw, "De" => ByRow(de -> (!ismissing(de))))
     subset!(raw, "A" => ByRow(a -> (!ismissing(a))))
     subset!(raw, "Du" => ByRow(du -> (!ismissing(du))))
     subset!(raw, "Au" => ByRow(au -> (!ismissing(au))))
-
-    function _semester(raw::DataFrame)
-        d = [Date.(raw.Du); Date.(raw.Au)] |> sort
-        med = d[length(d) ÷ 2]
-        y = year(med)
-        c = "-"
-        if med > Date(y, 01, 01) && med < Date(y, 04, 30)
-            c = "H"
-        elseif med > Date(y, 05, 01) && med < Date(y, 08, 31)
-            c = "E"
-        elseif med > Date(y, 09, 01) && med < Date(y, 12, 31)
-            c = "A"
-        end
-        
-        return Symbol("$c$(y % 100)")
-    end
+    
+    _semester!(raw)
 
     df = DataFrame()
     df.sigle = Symbol.(raw[!, "Mat."] .* raw[!, "Num. rép."])
@@ -198,7 +217,7 @@ function ScheduleCollection(fn::String, ::Type{FromSynchroCSV})
     df.msection = [Symbol(str[1]) for str in raw."Sect."]
     df.volet = [Symbol(str) for str in raw."Volet"]
     df.jour = [Symbol.(str) for str in raw.Jour]
-    df.semester .= _semester(raw)
+    df.semester = raw.semester
     df.row_id = 1:nrow(df)
     df.imm = Symbol.(raw[!, "Imm."])
     df.span = expand.(df.row_id, df.imm, raw."De", raw."A", raw."Du", raw."Au", df.jour)
@@ -229,3 +248,5 @@ end
 # s = Schedules("data/A25.csv", FromAcademicCSV)
 
 end
+
+

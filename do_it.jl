@@ -24,24 +24,25 @@ courses.req .= data.r[courses.sigle].requirement_text
 prefs = CSV.File("preferences.csv"; types=[Symbol, Int, Float32], strict=true) |> DataFrame
 courses = innerjoin(courses, prefs, on=:sigle, matchmissing=:error, validate=(true, true))
 
-semester_schedules = [:A25, :H26, :E26, :A25]
+semester_schedules = [:A25, :H26, :E26, :A25, :H26]
+sem_penalty = [0, 0, -100, 0, 0]
 nb_s = length(semester_schedules)
 
 ## Test junk:
 
 # s = Schedules.ScheduleCollection(readdir("data/Horaires_20250829", join=true), FromSynchroCSV)
 
-sp_a = vcat((data.s[:sigle, :IFT1215] & data.s[:msection, :B] & data.s[:semester, :A25])[:span]...)
-sp_b = vcat((data.s[:sigle, :BCM1501] & data.s[:semester, :A25])[:span]...)
+# sp_a = vcat((data.s[:sigle, :BCM] & data.s[:msection, :B] & data.s[:semester, :A25])[:span]...)
+# sp_b = vcat((data.s[:sigle, :BCM1501] & data.s[:semester, :A25])[:span]...)
 
-for a in sp_a, b in sp_b
-    # println("$a $b")
-    d = max(Minute(0), getdist(data.s, a, b) - Minute(10))
-    _conflict(a, b, Minute(0)) && println("Conflict between: $a $b")
-    _conflict(a, b, getdist(data.s, a, b)) && println("Distance conflict between: $a $b")
-    # println("distance:$d")
-end
-Spans.conflict_expl(sp_a, sp_b, Minute(0))
+# for a in sp_a, b in sp_b
+#     # println("$a $b")
+#     d = max(Minute(0), getdist(data.s, a, b) - Minute(10))
+#     _conflict(a, b, Minute(0)) && println("Conflict between: $a $b")
+#     _conflict(a, b, getdist(data.s, a, b)) && println("Distance conflict between: $a $b")
+#     # println("distance:$d")
+# end
+# Spans.conflict_expl(sp_a, sp_b, Minute(0))
 
 ## decision:  (to take a section i at semester j)
 
@@ -50,7 +51,10 @@ decision = combine(groupby(avail, [:sigle, :msection, :semester])) do df
     (; span = [reduce(vcat, df.span)])
 end
 
-decision.credits = data.r[decision.sigle].credits
+decision.credits = data.r[decision.sigle].credits # For computing credits done (total + bloc)
+decision.credits_eff = data.r[decision.sigle].credits # For computing work load
+decision[decision.sigle .== :BIN3005, :credits_eff] .= 2
+
 nb_d = nrow(decision)
 nb_c = nrow(courses)
 
@@ -66,7 +70,7 @@ c2d = [decision[j, :sigle] == courses[i, :sigle] for i=1:nb_c, j=1:nb_d]
 @expression(model, done_before[i=1:nb_c, k=1:nb_s], courses.before[i] + ((k > 1) ? sum(doing[i, 1:(k-1)]) : 0))
 
 # schedule conflicts
-active_conflict = DataFrame(sigle_a=Symbol[], msection_a=Symbol[], sigle_b=Symbol[], msection_b=Symbol[], semester=Int[], schedule=Symbol[], var=VariableRef[])
+active_conflict = DataFrame(sigle_a=Symbol[], msection_a=Symbol[], sigle_b=Symbol[], msection_b=Symbol[], imm_a=Symbol[], imm_b=Symbol[], semester=Int[], schedule=Symbol[], var=VariableRef[])
 for k in 1:nb_s
     for i in 1:nb_d
         if decision[i, :semester] ≠ semester_schedules[k]
@@ -75,13 +79,17 @@ for k in 1:nb_s
         end
         for j in (i+1):nb_d
             decision[j, :semester] ≠ semester_schedules[k] && continue
-            if _conflict(decision[i, :span], decision[j, :span])
-
-                var = @variable(model, binary=true)
-                push!(active_conflict, (sigle_a=decision[i, :sigle], msection_a=decision[i, :msection],
-                                        sigle_b=decision[j, :sigle], msection_b=decision[j, :msection],
-                                        semester=k, schedule=semester_schedules[k], var))
-                @constraint(model, var --> {decision_var[i, k] + decision_var[j, k] ≤ 1})
+            for sp_a ∈ decision[i, :span], sp_b ∈ decision[j, :span]
+                d = getdist(data.s, sp_a.imm, sp_b.imm)
+                if _conflict(sp_a, sp_b, d)
+                    var = @variable(model, binary=true)
+                    push!(active_conflict, (sigle_a=decision[i, :sigle], msection_a=decision[i, :msection],
+                                            sigle_b=decision[j, :sigle], msection_b=decision[j, :msection],
+                                            imm_a=sp_a.imm, imm_b=sp_b.imm,
+                                            semester=k, schedule=semester_schedules[k], var))
+                    @constraint(model, var --> {decision_var[i, k] + decision_var[j, k] ≤ 1})
+                    break
+                end
             end
         end
     end
@@ -90,9 +98,9 @@ end
 # max credits and prog. objective
 @expression(model, done , sum(doing, dims=2) .+ courses.before)
 @constraint(model, [i=1:nb_c], done[i] ≤ 1)
-@constraint(model, [k=1:nb_s], sum(decision_var[:,k] .* decision[:,:credits]) ≤ 18) # 15)
+@constraint(model, [k=1:nb_s], sum(decision_var[:,k] .* decision[:,:credits_eff]) ≤ 15) # 15)
 # @constraint(model, [k=1:(nb_s-1)], sum(decision_var[:,k] .* decision[:,:credits]) ≥ 15)
-@constraint(model, sum(done .* courses[:,:credits]) ≥ 84) # 90) # 
+@constraint(model, sum(done .* courses[:,:credits]) ≥ 89) # 90) # 
 # @constraint(model, sum(done .* courses[:,:credits]) ≥ 29)
 # @constraint(model, sum(done .* courses[:,:credits]) ≤ 91)
 
@@ -151,15 +159,21 @@ end
 # # doneby!(model, :BIN3002, 5)
 # # doneby!(model, :BIN3005, 5)
 
+forced!(:BIO3204, 1)
+# forced!(:STT1700, 1)
+# forced!(:IFT1025, 1)
+# forced!(:BCM2502, 1)
+
 # Objective & optimization
 # pref = reshape(courses.pref, :, 1)
 big = -10000.0
 @objective(model, Max, sum(doing .* courses[:,:pref])
-                       + big * sum(1 .- active_conflict.var)
+                       + (big ÷ 10) * sum(1 .- active_conflict.var)
                        + big * sum(1 .- active_bloc.min)
                        + big * sum(1 .- active_bloc.max)
+                       + sum([sum(decision_var[:,k] .* decision[:,:credits]) * sem_penalty[k] for k ∈ 1:nb_s])
                     #    + 50 * (90 - sum(done .* courses[:,:credits]))
-                       + 5 * sum(done .* courses[:,:credits])
+                    #    + 5 * sum(done .* courses[:,:credits])
             )
 
 ## Basic ##
@@ -167,6 +181,7 @@ big = -10000.0
 optimize!(model)
 
 showsolution(model, semester_schedules, decision)
+# inactivated_cst(active_conflict, active_bloc)
 # conflictissues!(active_conflict, decision, s)
 
 # # Report blocs
@@ -176,9 +191,10 @@ showsolution(model, semester_schedules, decision)
 
 feasible = true
 solutions_found = 0
+max_sol = 10
 set_optimizer_attribute(model, "OutputFlag", 0)
 
-while feasible
+while feasible && solutions_found < max_sol
     optimize!(model)
     term_status = termination_status(model)
     
@@ -189,7 +205,8 @@ while feasible
     end
 
     solutions_found += 1
-    println("Found solution #$solutions_found:")
+    println("\nSolution #$solutions_found --------------------\n")
+
 
     # Retrieve current solution values
     showsolution(model, semester_schedules, decision)
@@ -202,4 +219,4 @@ while feasible
     @constraint(model, expr ≥ 1)
 end
 
-println("Total distinct solutions found: $solutions_found")
+# println("Total distinct solutions found: $solutions_found")

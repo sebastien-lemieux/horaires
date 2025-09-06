@@ -62,9 +62,10 @@ end
 
 # Utilities
 
-_conflict(span_a::Span, span_b::Span, d::Minute) =
-    (span_a.s <= (span_b.e + d)) && ((span_a.e + d) >= span_b.s)
-
+function _conflict(span_a::Span, span_b::Span, d::Minute)
+    d = max(Minute(0), d - Minute(10))
+    return (span_a.s <= (span_b.e + d)) && ((span_a.e + d) >= span_b.s)
+end
 
 
 # _conflict(span_a::Span, span_b::Span) = (span_a.s <= span_b.e) && (span_a.e >= span_b.s)
