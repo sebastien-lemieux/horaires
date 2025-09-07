@@ -87,6 +87,7 @@ function modif!(p::ProgramCollection, r::Repertoire, s::ScheduleCollection)
     changeprereq(:BIO2043, "BCM1503")
     changeprereq(:IFT2125, "IFT1025")
     changeprereq(:PBC3060, "BIO1153 et BCM2502")
+    changeprereq(:BIN3002, "BCM2502 ET IFT2015 et (BIO2043 ou MAT1978 ou STT1700)")
     changeprereq(:BIN3005, "BCM2003 ET IFT2015 et (BIO2043 ou MAT1978 ou STT1700)")
 end
 
