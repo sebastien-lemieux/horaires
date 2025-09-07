@@ -24,13 +24,17 @@ function showsolution(model, semester_schedules, decision)
 
     active_conflict.value = value.(active_conflict.var)
     report_c = active_conflict[active_conflict.value .< 1.0, :]
-    active_bloc.min_v = value.(active_bloc.min)
-    active_bloc.max_v = value.(active_bloc.max)
-    o = (active_bloc.min_v .< 1.0 .|| active_bloc.max_v .< 1.0)
-    report_b = active_bloc[o,:]
-    println("Nb. de conflits à régler: $(nrow(report_c))")
-    println("Nb. de bloc à problème: $(nrow(report_b))")
+    bloc_v = 1.0 .- value(model[:bloc_ind])
+    p_bloc = sum(bloc_v, dims=2)
 
+    println("Nb. de conflits à régler: $(nrow(report_c))")
+    println("Nb. de bloc à problème: $(sum(p_bloc .> 0.0))\n")
+
+    pref_v = value.(model[:doing]) .* courses[:, :pref]
+    println("Score pour préférences: $(sum(pref_v))")
+    
+    sem_v = sum([sum(value(model[:decision_var][:,k]) .* decision[:,:credits]) * sem_penalty[k] for k ∈ 1:nb_s])
+    println("Score pour semestre: $sem_v")
 
     println()
     choices = round.(Bool, value.(model[:decision_var]))
@@ -41,7 +45,6 @@ function showsolution(model, semester_schedules, decision)
             choices[i,k] && println("  $i: $(decision[i, :sigle]):$(decision[i, :msection])")
         end
     end
-    return report_c, report_b
 end
 
 function getspan(decision, sigle, msection, semester)

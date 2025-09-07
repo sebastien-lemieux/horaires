@@ -25,26 +25,12 @@ prefs = CSV.File("preferences.csv"; types=[Symbol, Int, Float32], strict=true) |
 courses = innerjoin(courses, prefs, on=:sigle, matchmissing=:error, validate=(true, true))
 
 semester_schedules = [:A25, :H26, :E26, :A25, :H26]
-sem_penalty = [0, 0, -100, 0, 0]
+sem_penalty = [0, 0, -100, 0, -10]
 nb_s = length(semester_schedules)
 
-## Test junk:
-
-# s = Schedules.ScheduleCollection(readdir("data/Horaires_20250829", join=true), FromSynchroCSV)
-
-# sp_a = vcat((data.s[:sigle, :BCM] & data.s[:msection, :B] & data.s[:semester, :A25])[:span]...)
-# sp_b = vcat((data.s[:sigle, :BCM1501] & data.s[:semester, :A25])[:span]...)
-
-# for a in sp_a, b in sp_b
-#     # println("$a $b")
-#     d = max(Minute(0), getdist(data.s, a, b) - Minute(10))
-#     _conflict(a, b, Minute(0)) && println("Conflict between: $a $b")
-#     _conflict(a, b, getdist(data.s, a, b)) && println("Distance conflict between: $a $b")
-#     # println("distance:$d")
-# end
-# Spans.conflict_expl(sp_a, sp_b, Minute(0))
-
 ## decision:  (to take a section i at semester j)
+## - This needs to be refined into (take section i, at semester j, in bloc k)
+## - It also need to include a large number of 02Z courses!
 
 avail = DataFrame(data.s[row -> row.sigle ∈ courses.sigle])
 decision = combine(groupby(avail, [:sigle, :msection, :semester])) do df
@@ -105,8 +91,13 @@ end
 # @constraint(model, sum(done .* courses[:,:credits]) ≤ 91)
 
 # blocs
-active_bloc = DataFrame(bloc=Bloc[], min=VariableRef[], max=VariableRef[], credits=AffExpr[])
+# active_bloc = DataFrame(bloc=Bloc[], min=VariableRef[], max=VariableRef[], credits=AffExpr[])
 # @expression(model, credits, done .* courses.credits)
+
+bloc_name = [b.id for s in prog.segments for b in s.blocs]
+bloc_ind = @variable(model, bloc_ind[1:length(bloc_name), 1:2], binary=true)
+bloc_i = 1
+
 for segment in prog.segments
     println("Working on segment $(segment.name)")
     for bloc in segment.blocs
@@ -116,11 +107,13 @@ for segment in prog.segments
         println(i)
         println(sum(done[i]))
         println(bloc.min, ", ", bloc.max)
-        var_1 = @variable(model, binary=true)
-        var_2 = @variable(model, binary=true)
-        push!(active_bloc, (bloc=bloc, min=var_1, max=var_2, credits=sum(done[i] .* courses.credits[i])))
-        @constraint(model, var_1 --> {sum(done[i] .* courses.credits[i]) ≥ bloc.min}) #var_1 --> {cr ≥ bloc.min})
-        @constraint(model, var_2 --> {sum(done[i] .* courses.credits[i]) ≤ bloc.max}) #var_2 --> {cr ≤ bloc.max})
+        # bloc_id = replace(String(bloc.id), ' ' => '_')
+        # var_1 = @variable(model, binary=true, base_name="min_$bloc_id")
+        # var_2 = @variable(model, binary=true, base_name="max_$bloc_id")
+        # push!(active_bloc, (bloc=bloc, min=var_1, max=var_2, credits=sum(done[i] .* courses.credits[i])))
+        @constraint(model, bloc_ind[bloc_i, 1] --> {sum(done[i] .* courses.credits[i]) ≥ bloc.min}) #var_1 --> {cr ≥ bloc.min})
+        @constraint(model, bloc_ind[bloc_i, 2] --> {sum(done[i] .* courses.credits[i]) ≤ bloc.max}) #var_2 --> {cr ≤ bloc.max})
+        bloc_i = bloc_i + 1
         # println(value(sum(done[i] .* courses.credits[i])))
     end
 end
@@ -162,15 +155,14 @@ end
 forced!(:BIO3204, 1)
 # forced!(:STT1700, 1)
 # forced!(:IFT1025, 1)
-# forced!(:BCM2502, 1)
+forced!(:BCM2502, 1)
 
 # Objective & optimization
 # pref = reshape(courses.pref, :, 1)
 big = -10000.0
 @objective(model, Max, sum(doing .* courses[:,:pref])
-                       + (big ÷ 10) * sum(1 .- active_conflict.var)
-                       + big * sum(1 .- active_bloc.min)
-                       + big * sum(1 .- active_bloc.max)
+                       + (big ÷ 5) * sum(1 .- active_conflict.var)
+                       + big * sum(1 .- bloc_ind)
                        + sum([sum(decision_var[:,k] .* decision[:,:credits]) * sem_penalty[k] for k ∈ 1:nb_s])
                     #    + 50 * (90 - sum(done .* courses[:,:credits]))
                     #    + 5 * sum(done .* courses[:,:credits])
@@ -189,6 +181,8 @@ showsolution(model, semester_schedules, decision)
 
 ## Explore ##
 
+import MathOptInterface as MOI
+MOI.Utilities.reset_optimizer(model)
 feasible = true
 solutions_found = 0
 max_sol = 10
